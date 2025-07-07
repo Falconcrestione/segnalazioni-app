@@ -8,6 +8,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function Home() {
   const [idSegnalazione, setIdSegnalazione] = useState("");
+  const [squadra, setSquadra] = useState(""); // 🔹 nuovo stato
   const [descrizione, setDescrizione] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
@@ -29,7 +30,7 @@ export default function Home() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!file || !idSegnalazione.trim() || !descrizione.trim() || !latLng) {
+    if (!file || !idSegnalazione.trim() || !descrizione.trim() || !squadra.trim() || !latLng) {
       alert("Compila tutti i campi e seleziona un file PDF.");
       return;
     }
@@ -42,6 +43,7 @@ export default function Home() {
 
       await addDoc(collection(db, "locations"), {
         IdSegnalazione: idSegnalazione,
+        squadra: squadra, // 🔹 salva la squadra
         descrption: descrizione,
         latitudine: latLng.lat,
         longitudine: latLng.lng,
@@ -51,8 +53,9 @@ export default function Home() {
       });
 
       alert("Segnalazione inviata con successo!");
-      // ✅ Reset form
+      // 🔄 Reset form
       setIdSegnalazione("");
+      setSquadra("");
       setDescrizione("");
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -103,6 +106,20 @@ export default function Home() {
           type="text"
           value={idSegnalazione}
           onChange={(e) => setIdSegnalazione(e.target.value)}
+          required
+          style={{
+            padding: "0.5rem",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            fontSize: "1rem"
+          }}
+        />
+
+        <label style={{ fontWeight: "600", color: "#555" }}>Squadra</label>
+        <input
+          type="text"
+          value={squadra}
+          onChange={(e) => setSquadra(e.target.value)}
           required
           style={{
             padding: "0.5rem",
