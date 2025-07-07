@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { FormEvent } from "react";
 import { db, storage } from "./lib/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
@@ -12,33 +12,24 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLatLng({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-        },
-        (err) => {
-          console.error("Errore nel rilevamento posizione:", err);
-          alert("Impossibile ottenere la posizione.");
-        }
-      );
-    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatLng({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      (err) => {
+        console.error("Errore posizione:", err);
+        alert("Impossibile ottenere la posizione.");
+      }
+    );
   }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (
-      !file ||
-      !idSegnalazione.trim() ||
-      !descrizione.trim() ||
-      !latLng
-    ) {
+    if (!file || !idSegnalazione.trim() || !descrizione.trim() || !latLng) {
       alert("Compila tutti i campi e seleziona un file PDF.");
       return;
     }
@@ -60,10 +51,11 @@ export default function Home() {
       });
 
       alert("Segnalazione inviata con successo!");
+      // ✅ Reset form
       setIdSegnalazione("");
       setDescrizione("");
       setFile(null);
-      setLatLng(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
       console.error(err);
       alert("Errore nell'invio");
@@ -72,53 +64,109 @@ export default function Home() {
   };
 
   return (
-    <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <h1>Invia Segnalazione</h1>
-      <form onSubmit={handleSubmit}>
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+      backgroundColor: "#f7f9fc",
+      padding: "1rem"
+    }}>
+      <h1 style={{
+        marginBottom: "2rem",
+        fontSize: "2.5rem",
+        fontWeight: "700",
+        color: "#333",
+        textAlign: "center",
+      }}>
+        Invio Schede Giornaliere
+      </h1>
+
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          backgroundColor: "white",
+          padding: "2rem",
+          borderRadius: "8px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          width: "100%",
+          maxWidth: "400px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "1.5rem"
+        }}
+      >
+        <label style={{ fontWeight: "600", color: "#555" }}>ID Segnalazione</label>
+        <input
+          type="text"
+          value={idSegnalazione}
+          onChange={(e) => setIdSegnalazione(e.target.value)}
+          required
+          style={{
+            padding: "0.5rem",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            fontSize: "1rem"
+          }}
+        />
+
+        <label style={{ fontWeight: "600", color: "#555" }}>Descrizione</label>
+        <textarea
+          value={descrizione}
+          onChange={(e) => setDescrizione(e.target.value)}
+          required
+          rows={1}
+          style={{
+            padding: "0.4rem",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            fontSize: "1rem",
+            resize: "none",
+            height: "40px"
+          }}
+        />
+
         <div>
-          <label>ID Segnalazione</label><br />
-          <input
-            type="text"
-            value={idSegnalazione}
-            onChange={(e) => setIdSegnalazione(e.target.value)}
-            required
-          />
-        </div>
-        <div style={{ marginTop: "1rem" }}>
-          <label>Descrizione</label><br />
-          <textarea
-            value={descrizione}
-            onChange={(e) => setDescrizione(e.target.value)}
-            required
-          />
-        </div>
-        <div style={{ marginTop: "1rem" }}>
-          <label>Posizione</label><br />
-          <p>
+          <label style={{ fontWeight: "600", color: "#555" }}>Posizione</label>
+          <p style={{ marginTop: "0.25rem", color: latLng ? "#222" : "#888" }}>
             {latLng
-              ? `Lat: ${latLng.lat}, Lng: ${latLng.lng}`
+              ? `Lat: ${latLng.lat.toFixed(5)}, Lng: ${latLng.lng.toFixed(5)}`
               : "Rilevamento posizione..."}
           </p>
         </div>
-        <div style={{ marginTop: "1rem" }}>
-          <label>Carica PDF</label><br />
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            required
-          />
-        </div>
+
+        <label style={{ fontWeight: "600", color: "#555" }}>Carica PDF</label>
+        <input
+          type="file"
+          accept="application/pdf"
+          ref={fileInputRef}
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          required
+          style={{ fontSize: "1rem" }}
+        />
+
         <button
           type="submit"
           disabled={loading}
           style={{
             marginTop: "1rem",
-            padding: "0.5rem 1rem",
-            backgroundColor: "#0070f3",
+            padding: "0.75rem",
+            backgroundColor: loading ? "#99c2ff" : "#0070f3",
             color: "white",
             border: "none",
-            cursor: "pointer",
+            borderRadius: "6px",
+            fontSize: "1.1rem",
+            fontWeight: "600",
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "background-color 0.3s ease"
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) e.currentTarget.style.backgroundColor = "#005bb5";
+          }}
+          onMouseLeave={(e) => {
+            if (!loading) e.currentTarget.style.backgroundColor = "#0070f3";
           }}
         >
           {loading ? "Invio in corso..." : "Invia"}
