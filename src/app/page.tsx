@@ -11,7 +11,6 @@ export default function Home() {
   const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Nuovi input
   const [comparto, setComparto] = useState("");
   const [tipoVeicolo, setTipoVeicolo] = useState("");
   const [targa, setTarga] = useState("");
@@ -86,6 +85,13 @@ export default function Home() {
     setLoading(false);
   };
 
+  const handleDownloadPdf = () => {
+    const link = document.createElement("a");
+    link.href = "/SCHEDA AUTOVETTURA.pdf"; // percorso PDF template
+    link.download = "SCHEDA_AUTOVETTURA.pdf"; // forza il download
+    link.click();
+  };
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -140,7 +146,7 @@ export default function Home() {
 
       {/* Pulsante download PDF template */}
       <button
-        onClick={() => window.open("/SCHEDA AUTOVETTURA.pdf")}
+        onClick={handleDownloadPdf}
         style={btnStyle}
       >
         📄 Compila Report
