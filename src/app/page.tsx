@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { db, storage } from "./lib/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -27,7 +28,7 @@ export default function Home() {
 
   const handleSend = async () => {
     if (!compiledPdf) {
-      alert("Carica il PDF compilato prima di inviare.");
+      alert("Carica il PDF compilato.");
       return;
     }
     if (!latLng) {
@@ -35,27 +36,26 @@ export default function Home() {
       return;
     }
     if (!comparto || !tipoVeicolo || !targa) {
-      alert("Inserisci tutti i campi: comparto, tipo veicolo e targa.");
+      alert("Compila tutti i campi richiesti.");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Caricamento PDF
-      const pdfRef = ref(storage, `reports/${compiledPdf.name}`);
+      // Upload PDF compilato
+      const pdfRef = ref(storage, `reports/${Date.now()}_report.pdf`);
       await uploadBytes(pdfRef, compiledPdf);
       const pdfUrl = await getDownloadURL(pdfRef);
 
-      // Caricamento JPG (se presente)
+      // Upload JPG
       let jpgUrl = null;
       if (jpgFile) {
-        const jpgRef = ref(storage, `images/${jpgFile.name}`);
+        const jpgRef = ref(storage, `images/${Date.now()}_${jpgFile.name}`);
         await uploadBytes(jpgRef, jpgFile);
         jpgUrl = await getDownloadURL(jpgRef);
       }
 
-      // Salvataggio Firestore
       await addDoc(collection(db, "reports"), {
         pdf: pdfUrl,
         jpg: jpgUrl,
@@ -70,7 +70,6 @@ export default function Home() {
 
       alert("Report inviato con successo!");
 
-      // Reset
       setCompiledPdf(null);
       setJpgFile(null);
       setComparto("");
@@ -79,17 +78,10 @@ export default function Home() {
 
     } catch (error) {
       console.error(error);
-      alert("Errore nell'invio");
+      alert("Errore durante l'invio.");
     }
 
     setLoading(false);
-  };
-
-  const handleDownloadPdf = () => {
-    const link = document.createElement("a");
-    link.href = "/report_auto_fillable.pdf"; // percorso PDF template
-    link.download = "report_auto_fillable.pdf"; // forza il download
-    link.click();
   };
 
   return (
@@ -103,57 +95,43 @@ export default function Home() {
       fontFamily: "sans-serif",
       backgroundColor: "#f4f6f9"
     }}>
-      
+
       <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: "700" }}>
         RENDICONTAZIONE CARBURANTE
       </h1>
 
-      {/* INPUTS IN ALTO */}
+      {/* CAMPi sopra il pulsante */}
       <div style={{ display: "flex", flexDirection: "column", width: "300px", gap: "1rem", marginBottom: "2rem" }}>
-        <div>
-          <label style={{ fontWeight: "600" }}>Comparto</label>
-          <input
-            type="text"
-            value={comparto}
-            onChange={(e) => setComparto(e.target.value)}
-            placeholder="Inserisci comparto"
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label style={{ fontWeight: "600" }}>Tipo Veicolo</label>
-          <input
-            type="text"
-            value={tipoVeicolo}
-            onChange={(e) => setTipoVeicolo(e.target.value)}
-            placeholder="Inserisci tipo veicolo"
-            style={inputStyle}
-          />
-        </div>
-
-        <div>
-          <label style={{ fontWeight: "600" }}>Targa</label>
-          <input
-            type="text"
-            value={targa}
-            onChange={(e) => setTarga(e.target.value)}
-            placeholder="Inserisci targa"
-            style={inputStyle}
-          />
-        </div>
+        <input
+          type="text"
+          value={comparto}
+          onChange={(e) => setComparto(e.target.value)}
+          placeholder="Comparto"
+          style={inputStyle}
+        />
+        <input
+          type="text"
+          value={tipoVeicolo}
+          onChange={(e) => setTipoVeicolo(e.target.value)}
+          placeholder="Tipo Veicolo"
+          style={inputStyle}
+        />
+        <input
+          type="text"
+          value={targa}
+          onChange={(e) => setTarga(e.target.value)}
+          placeholder="Targa"
+          style={inputStyle}
+        />
       </div>
 
-      {/* Pulsante download PDF template */}
-      <button
-        onClick={handleDownloadPdf}
-        style={btnStyle}
-      >
-        📄 Compila Report
-      </button>
+      {/* Pulsante PDF */}
+      <Link href="/compila">
+        <button style={btnStyle}>✏️ Compila PDF</button>
+      </Link>
 
       {/* Carica PDF compilato */}
-      <div style={{ marginTop: "1.5rem" }}>
+      <div style={{ marginTop: "2rem" }}>
         <label style={{ fontWeight: "600" }}>Carica PDF compilato</label>
         <input
           type="file"
@@ -172,14 +150,18 @@ export default function Home() {
         />
       </div>
 
-      {/* Pulsante invio */}
       <button
         onClick={handleSend}
         disabled={loading}
-        style={{ ...btnStyle, backgroundColor: loading ? "#aaa" : "#0070f3", marginTop: "2rem" }}
+        style={{
+          ...btnStyle,
+          marginTop: "2rem",
+          backgroundColor: loading ? "#aaa" : "#0070f3"
+        }}
       >
         {loading ? "Invio in corso..." : "📤 Invia Report"}
       </button>
+
     </div>
   );
 }
@@ -200,5 +182,4 @@ const inputStyle = {
   padding: "0.5rem",
   borderRadius: "4px",
   border: "1px solid #ccc",
-  marginTop: "0.25rem",
 };
