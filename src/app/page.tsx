@@ -87,8 +87,8 @@ export default function Home() {
 
   const handleDownloadPdf = () => {
     const link = document.createElement("a");
-    link.href = "/SCHEDA AUTOVETTURA.pdf"; // percorso PDF template
-    link.download = "SCHEDA_AUTOVETTURA.pdf"; // forza il download
+    link.href = "/report_auto_fillable.pdf"; // percorso PDF template
+    link.download = "report_auto_fillable.pdf"; // forza il download
     link.click();
   };
 
