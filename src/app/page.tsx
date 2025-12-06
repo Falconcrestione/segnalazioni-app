@@ -1,21 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import type { FormEvent } from "react";
+import { useState, useEffect } from "react";
 import { db, storage } from "./lib/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function Home() {
-  const [docAcquisto, setDocAcquisto] = useState("");
-  const [squadra, setSquadra] = useState("");
-  const [quantita, setQuantita] = useState("");
-  const [pdfFiles, setPdfFiles] = useState<FileList | null>(null);
-  const [jpgFiles, setJpgFiles] = useState<FileList | null>(null);
+  const [compiledPdf, setCompiledPdf] = useState<File | null>(null);
+  const [jpgFile, setJpgFile] = useState<File | null>(null);
   const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
-  const pdfInputRef = useRef<HTMLInputElement>(null);
-  const jpgInputRef = useRef<HTMLInputElement>(null);
+
+  // Nuovi input
+  const [comparto, setComparto] = useState("");
+  const [tipoVeicolo, setTipoVeicolo] = useState("");
+  const [targa, setTarga] = useState("");
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -27,69 +26,60 @@ export default function Home() {
     );
   }, []);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!pdfFiles || pdfFiles.length === 0 || !docAcquisto.trim() || !quantita.trim() || !squadra.trim() || !latLng) {
-      alert("Compila tutti i campi e seleziona almeno un file PDF.");
+  const handleSend = async () => {
+    if (!compiledPdf) {
+      alert("Carica il PDF compilato prima di inviare.");
+      return;
+    }
+    if (!latLng) {
+      alert("Posizione non disponibile.");
+      return;
+    }
+    if (!comparto || !tipoVeicolo || !targa) {
+      alert("Inserisci tutti i campi: comparto, tipo veicolo e targa.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const pdfUrls: string[] = [];
-      const jpgUrls: string[] = [];
+      // Caricamento PDF
+      const pdfRef = ref(storage, `reports/${compiledPdf.name}`);
+      await uploadBytes(pdfRef, compiledPdf);
+      const pdfUrl = await getDownloadURL(pdfRef);
 
-      // Upload PDF
-      for (const file of Array.from(pdfFiles)) {
-        if (file.type !== "application/pdf") {
-          alert(`Il file "${file.name}" non è un PDF.`);
-          setLoading(false);
-          return;
-        }
-        const fileRef = ref(storage, `pdf/${file.name}`);
-        await uploadBytes(fileRef, file);
-        pdfUrls.push(await getDownloadURL(fileRef));
+      // Caricamento JPG (se presente)
+      let jpgUrl = null;
+      if (jpgFile) {
+        const jpgRef = ref(storage, `images/${jpgFile.name}`);
+        await uploadBytes(jpgRef, jpgFile);
+        jpgUrl = await getDownloadURL(jpgRef);
       }
 
-      // Upload JPG
-      if (jpgFiles) {
-        for (const file of Array.from(jpgFiles)) {
-          if (!file.type.startsWith("image/")) {
-            alert(`Il file "${file.name}" non è un'immagine.`);
-            setLoading(false);
-            return;
-          }
-          const fileRef = ref(storage, `jpg/${file.name}`);
-          await uploadBytes(fileRef, file);
-          jpgUrls.push(await getDownloadURL(fileRef));
-        }
-      }
-
-      await addDoc(collection(db, "locations"), {
-        DocAcquisto: docAcquisto,
-        squadra,
-        quantita,
+      // Salvataggio Firestore
+      await addDoc(collection(db, "reports"), {
+        pdf: pdfUrl,
+        jpg: jpgUrl,
         latitudine: latLng.lat,
         longitudine: latLng.lng,
-        pdfUrls,
-        jpgUrls,
+        comparto,
+        tipoVeicolo,
+        targa,
         validated: false,
         createdAt: Timestamp.now(),
       });
 
-      alert("Segnalazione inviata con successo!");
-      setDocAcquisto("");
-      setSquadra("");
-      setQuantita("");
-      setPdfFiles(null);
-      setJpgFiles(null);
-      if (pdfInputRef.current) pdfInputRef.current.value = "";
-      if (jpgInputRef.current) jpgInputRef.current.value = "";
+      alert("Report inviato con successo!");
 
-    } catch (err) {
-      console.error(err);
+      // Reset
+      setCompiledPdf(null);
+      setJpgFile(null);
+      setComparto("");
+      setTipoVeicolo("");
+      setTarga("");
+
+    } catch (error) {
+      console.error(error);
       alert("Errore nell'invio");
     }
 
@@ -97,68 +87,112 @@ export default function Home() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", backgroundColor: "#f7f9fc", padding: "1rem" }}>
-      <h1 style={{ marginBottom: "2rem", fontSize: "2.5rem", fontWeight: "700", color: "#333", textAlign: "center" }}>
-        RENDICONTAZIONE CARBURANTE FLOTTA SORVEGLIANZA IDRAULICA
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: "1rem",
+      fontFamily: "sans-serif",
+      backgroundColor: "#f4f6f9"
+    }}>
+      
+      <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: "700" }}>
+        RENDICONTAZIONE CARBURANTE
       </h1>
 
-      <form onSubmit={handleSubmit} style={{ backgroundColor: "white", padding: "2rem", borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", width: "100%", maxWidth: "400px", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        
-        <label style={{ fontWeight: "600", color: "#555" }}>Doc.Acquisto</label>
-        <input type="text" value={docAcquisto} onChange={(e) => setDocAcquisto(e.target.value)} required style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc", fontSize: "1rem" }} />
-
-        <label style={{ fontWeight: "600", color: "#555" }}>Squadra</label>
-        <input type="text" value={squadra} onChange={(e) => setSquadra(e.target.value)} required style={{ padding: "0.5rem", borderRadius: "4px", border: "1px solid #ccc", fontSize: "1rem" }} />
-
-        <label style={{ fontWeight: "600", color: "#555" }}>Quantità</label>
-        <textarea value={quantita} onChange={(e) => setQuantita(e.target.value)} required rows={1} style={{ padding: "0.4rem", borderRadius: "4px", border: "1px solid #ccc", fontSize: "1rem", resize: "none", height: "40px" }} />
-
+      {/* INPUTS IN ALTO */}
+      <div style={{ display: "flex", flexDirection: "column", width: "300px", gap: "1rem", marginBottom: "2rem" }}>
         <div>
-          <label style={{ fontWeight: "600", color: "#555" }}>Posizione</label>
-          <p style={{ marginTop: "0.25rem", color: latLng ? "#222" : "#888" }}>
-            {latLng ? `Lat: ${latLng.lat.toFixed(5)}, Lng: ${latLng.lng.toFixed(5)}` : "Rilevamento posizione..."}
-          </p>
+          <label style={{ fontWeight: "600" }}>Comparto</label>
+          <input
+            type="text"
+            value={comparto}
+            onChange={(e) => setComparto(e.target.value)}
+            placeholder="Inserisci comparto"
+            style={inputStyle}
+          />
         </div>
 
-        <label style={{ fontWeight: "600", color: "#555" }}>Carica PDF (puoi selezionare più file)</label>
+        <div>
+          <label style={{ fontWeight: "600" }}>Tipo Veicolo</label>
+          <input
+            type="text"
+            value={tipoVeicolo}
+            onChange={(e) => setTipoVeicolo(e.target.value)}
+            placeholder="Inserisci tipo veicolo"
+            style={inputStyle}
+          />
+        </div>
+
+        <div>
+          <label style={{ fontWeight: "600" }}>Targa</label>
+          <input
+            type="text"
+            value={targa}
+            onChange={(e) => setTarga(e.target.value)}
+            placeholder="Inserisci targa"
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      {/* Pulsante download PDF template */}
+      <button
+        onClick={() => window.open("/SCHEDA AUTOVETTURA.pdf")}
+        style={btnStyle}
+      >
+        📄 Compila Report
+      </button>
+
+      {/* Carica PDF compilato */}
+      <div style={{ marginTop: "1.5rem" }}>
+        <label style={{ fontWeight: "600" }}>Carica PDF compilato</label>
         <input
           type="file"
           accept="application/pdf"
-          multiple
-          ref={pdfInputRef}
-          onChange={(e) => setPdfFiles(e.target.files)}
-          required
-          style={{ fontSize: "1rem" }}
+          onChange={(e) => setCompiledPdf(e.target.files?.[0] || null)}
         />
+      </div>
 
-        <label style={{ fontWeight: "600", color: "#555" }}>Carica JPG (puoi selezionare più file)</label>
+      {/* Carica foto JPG */}
+      <div style={{ marginTop: "1rem" }}>
+        <label style={{ fontWeight: "600" }}>Foto (opzionale)</label>
         <input
           type="file"
           accept="image/*"
-          multiple
-          ref={jpgInputRef}
-          onChange={(e) => setJpgFiles(e.target.files)}
-          style={{ fontSize: "1rem" }}
+          onChange={(e) => setJpgFile(e.target.files?.[0] || null)}
         />
+      </div>
 
-        <button type="submit" disabled={loading} style={{
-          marginTop: "1rem",
-          padding: "0.75rem",
-          backgroundColor: loading ? "#99c2ff" : "#0070f3",
-          color: "white",
-          border: "none",
-          borderRadius: "6px",
-          fontSize: "1.1rem",
-          fontWeight: "600",
-          cursor: loading ? "not-allowed" : "pointer",
-          transition: "background-color 0.3s ease"
-        }}
-          onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = "#005bb5"; }}
-          onMouseLeave={(e) => { if (!loading) e.currentTarget.style.backgroundColor = "#0070f3"; }}
-        >
-          {loading ? "Invio in corso..." : "Invia"}
-        </button>
-      </form>
+      {/* Pulsante invio */}
+      <button
+        onClick={handleSend}
+        disabled={loading}
+        style={{ ...btnStyle, backgroundColor: loading ? "#aaa" : "#0070f3", marginTop: "2rem" }}
+      >
+        {loading ? "Invio in corso..." : "📤 Invia Report"}
+      </button>
     </div>
   );
 }
+
+const btnStyle = {
+  padding: "0.8rem 1.5rem",
+  backgroundColor: "#0070f3",
+  color: "white",
+  border: "none",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontSize: "1rem",
+  fontWeight: 600,
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "0.5rem",
+  borderRadius: "4px",
+  border: "1px solid #ccc",
+  marginTop: "0.25rem",
+};
