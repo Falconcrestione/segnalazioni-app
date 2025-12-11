@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { db, storage } from "./lib/firebase";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { collection, addDoc, Timestamp, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function Home() {
@@ -27,35 +27,27 @@ export default function Home() {
   }, []);
 
   const handleSend = async () => {
-    if (!compiledPdf) {
-      alert("Carica il PDF compilato.");
-      return;
-    }
-    if (!latLng) {
-      alert("Posizione non disponibile.");
-      return;
-    }
-    if (!comparto || !tipoVeicolo || !targa) {
-      alert("Compila tutti i campi richiesti.");
-      return;
-    }
+    if (!compiledPdf) return alert("Carica il PDF compilato.");
+    if (!latLng) return alert("Posizione non disponibile.");
+    if (!comparto || !tipoVeicolo || !targa) return alert("Compila tutti i campi richiesti.");
 
     setLoading(true);
 
     try {
-      // Upload PDF compilato
+      // --- Upload PDF ---
       const pdfRef = ref(storage, `reports/${Date.now()}_report.pdf`);
       await uploadBytes(pdfRef, compiledPdf);
       const pdfUrl = await getDownloadURL(pdfRef);
 
-      // Upload JPG
-      let jpgUrl = null;
+      // --- Upload JPG opzionale ---
+      let jpgUrl: string | null = null;
       if (jpgFile) {
         const jpgRef = ref(storage, `images/${Date.now()}_${jpgFile.name}`);
         await uploadBytes(jpgRef, jpgFile);
         jpgUrl = await getDownloadURL(jpgRef);
       }
 
+      // --- Salva report in Firestore ---
       await addDoc(collection(db, "reports"), {
         pdf: pdfUrl,
         jpg: jpgUrl,
@@ -68,8 +60,20 @@ export default function Home() {
         createdAt: Timestamp.now(),
       });
 
+      // --- Trova il veicolo tramite targa e aggiorna stato ---
+      const veicoloQuery = query(collection(db, "veicoli"), where("targa", "==", targa));
+      const veicoloSnap = await getDocs(veicoloQuery);
+      if (!veicoloSnap.empty) {
+        const veicoloDoc = veicoloSnap.docs[0];
+        await updateDoc(veicoloDoc.ref, { stato: "libero" });
+        console.log("Veicolo aggiornato a libero:", veicoloDoc.id);
+      } else {
+        console.warn("Veicolo non trovato per la targa:", targa);
+      }
+
       alert("Report inviato con successo!");
 
+      // --- Reset campi ---
       setCompiledPdf(null);
       setJpgFile(null);
       setComparto("");
@@ -77,55 +81,26 @@ export default function Home() {
       setTarga("");
 
     } catch (error) {
-      console.error(error);
-      alert("Errore durante l'invio.");
+      console.error("Errore durante l'invio:", error);
+      alert("Errore durante l'invio del report.");
     }
 
     setLoading(false);
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: "1rem",
-      fontFamily: "sans-serif",
-      backgroundColor: "#f4f6f9"
-    }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "1rem", fontFamily: "sans-serif", backgroundColor: "#f4f6f9" }}>
 
-      <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: "700" }}>
-        RENDICONTAZIONE CARBURANTE
-      </h1>
+      <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: "700" }}>RENDICONTAZIONE CARBURANTE</h1>
 
-      {/* CAMPi sopra il pulsante */}
+      {/* Campi dati */}
       <div style={{ display: "flex", flexDirection: "column", width: "300px", gap: "1rem", marginBottom: "2rem" }}>
-        <input
-          type="text"
-          value={comparto}
-          onChange={(e) => setComparto(e.target.value)}
-          placeholder="Comparto"
-          style={inputStyle}
-        />
-        <input
-          type="text"
-          value={tipoVeicolo}
-          onChange={(e) => setTipoVeicolo(e.target.value)}
-          placeholder="Tipo Veicolo"
-          style={inputStyle}
-        />
-        <input
-          type="text"
-          value={targa}
-          onChange={(e) => setTarga(e.target.value)}
-          placeholder="Targa"
-          style={inputStyle}
-        />
+        <input type="text" value={comparto} onChange={(e) => setComparto(e.target.value)} placeholder="Comparto" style={inputStyle} />
+        <input type="text" value={tipoVeicolo} onChange={(e) => setTipoVeicolo(e.target.value)} placeholder="Tipo Veicolo" style={inputStyle} />
+        <input type="text" value={targa} onChange={(e) => setTarga(e.target.value)} placeholder="Targa" style={inputStyle} />
       </div>
 
-      {/* Pulsante PDF */}
+      {/* Link per compilare PDF */}
       <Link href="/compila">
         <button style={btnStyle}>✏️ Compila PDF</button>
       </Link>
@@ -133,35 +108,18 @@ export default function Home() {
       {/* Carica PDF compilato */}
       <div style={{ marginTop: "2rem" }}>
         <label style={{ fontWeight: "600" }}>Carica PDF compilato</label>
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={(e) => setCompiledPdf(e.target.files?.[0] || null)}
-        />
+        <input type="file" accept="application/pdf" onChange={(e) => setCompiledPdf(e.target.files?.[0] || null)} />
       </div>
 
       {/* Carica foto JPG */}
       <div style={{ marginTop: "1rem" }}>
         <label style={{ fontWeight: "600" }}>Foto (opzionale)</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setJpgFile(e.target.files?.[0] || null)}
-        />
+        <input type="file" accept="image/*" onChange={(e) => setJpgFile(e.target.files?.[0] || null)} />
       </div>
 
-      <button
-        onClick={handleSend}
-        disabled={loading}
-        style={{
-          ...btnStyle,
-          marginTop: "2rem",
-          backgroundColor: loading ? "#aaa" : "#0070f3"
-        }}
-      >
+      <button onClick={handleSend} disabled={loading} style={{ ...btnStyle, marginTop: "2rem", backgroundColor: loading ? "#aaa" : "#0070f3" }}>
         {loading ? "Invio in corso..." : "📤 Invia Report"}
       </button>
-
     </div>
   );
 }
