@@ -18,7 +18,7 @@ export default function RichiediVeicolo() {
       const list: any[] = [];
       snap.forEach(doc => {
         const d = doc.data();
-        if (d.stato === "libero") 
+       // if (d.stato === "libero") 
           list.push({ id: doc.id, ...d });
       });
       setVeicoliLiberi(list);
@@ -66,7 +66,8 @@ export default function RichiediVeicolo() {
         <select value={veicolo} onChange={(e)=>setVeicolo(e.target.value)}>
           <option value="">Seleziona un veicolo</option>
           {veicoliLiberi.map(v => (
-            <option key={v.id} value={v.id}>
+            <option key={v.id} value={v.id}
+            disabled={v.stato !== "libero"}>
               {v.modello} - {v.targa} -{v.stato}
             </option>
           ))}

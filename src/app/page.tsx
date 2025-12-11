@@ -120,7 +120,13 @@ export default function Home() {
       <button onClick={handleSend} disabled={loading} style={{ ...btnStyle, marginTop: "2rem", backgroundColor: loading ? "#aaa" : "#0070f3" }}>
         {loading ? "Invio in corso..." : "📤 Invia Report"}
       </button>
+      <br/>
+    <Link href="/richiedi-veicolo">
+        <button style={btnStyle}>✏️ RICHIEDI VEICOLO</button>
+      </Link>
+      
     </div>
+    
   );
 }
 
