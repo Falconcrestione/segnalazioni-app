@@ -10,6 +10,7 @@ export default function RichiediVeicolo() {
   const [cognome, setCognome] = useState("");
   const [email, setEmail] = useState("");
   const [comparto, setComparto] = useState("");
+   const [missione, setMissione] = useState("");
   const [veicolo, setVeicolo] = useState("");
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function RichiediVeicolo() {
   }, []);
 
   const send = async () => {
-    if (!nome || !cognome || !email || !comparto || !veicolo)
+    if (!nome || !cognome || !email || !comparto || !veicolo ||! missione)
       return alert("Compila tutti i campi");
 
     await addDoc(collection(db, "richieste"), {
@@ -35,6 +36,7 @@ export default function RichiediVeicolo() {
       cognome,
       email,
       comparto,
+      missione,
       veicolo,
       status: "in attesa",
       createdAt: Timestamp.now(),
@@ -62,7 +64,7 @@ export default function RichiediVeicolo() {
         <input placeholder="Cognome" value={cognome} onChange={(e)=>setCognome(e.target.value)} />
         <input placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} />
         <input placeholder="Comparto" value={comparto} onChange={(e)=>setComparto(e.target.value)} />
-
+        <input placeholder="Missione" value={missione} onChange={(e)=>setMissione(e.target.value)} />
         <select value={veicolo} onChange={(e)=>setVeicolo(e.target.value)}>
           <option value="">Seleziona un veicolo</option>
           {veicoliLiberi.map(v => (

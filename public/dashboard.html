@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pannello Gestione Veicoli e Reports</title>
+
+<!-- LEAFLET -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+<style>
+body {
+    font-family: Arial;
+    background: #f4f6f9;
+    padding: 20px;
+}
+h2 {
+    margin-top: 35px;
+    color: #333;
+}
+#map {
+    height: 450px;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    border: 2px solid #ccc;
+}
+table {
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+}
+th {
+    background: #0070f3;
+    color: white;
+    padding: 10px;
+}
+td {
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+}
+tr:hover {
+    background: #f0f8ff;
+}
+button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.btn-validate {
+    background: #28a745;
+    color: white;
+}
+.btn-delete {
+    background: #dc3545;
+    color: white;
+}
+.btn-approve {
+    background: #0070f3;
+    color: white;
+}
+.btn-reject {
+    background: #6c757d;
+    color: white;
+}
+</style>
+</head>
+<body>
+
+<h1>🚓 Dashboard Gestione Veicoli & Reports</h1>
+
+<!-- MAPPA -->
+<div id="map"></div>
+
+<!-- FILTRI -->
+<div>
+    <input type="text" id="searchComparto" placeholder="Cerca per Comparto">
+    <input type="text" id="searchTipoVeicolo" placeholder="Cerca per Tipo Veicolo">
+    <input type="text" id="searchTarga" placeholder="Cerca per Targa">
+    <button onclick="searchReports()">Cerca</button>
+</div>
+
+<!-- REPORTS -->
+<h2>📄 Reports</h2>
+<table id="data-table">
+<thead>
+<tr>
+    <th>Lat</th>
+    <th>Lng</th>
+    <th>Comparto</th>
+    <th>Tipo Veicolo</th>
+    <th>Targa</th>
+    <th>PDF</th>
+    <th>JPG</th>
+    <th>Validato</th>
+    <th>Azione</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<!-- VEICOLI -->
+<h2>🚗 Veicoli</h2>
+<table id="table-veicoli">
+<thead>
+<tr>
+    <th>Targa</th>
+    <th>Modello</th>
+    <th>Stato</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<!-- RICHIESTE VEICOLI -->
+<h2>📨 Richieste Veicoli</h2>
+<table id="table-richieste">
+<thead>
+<tr>
+    <th>Nome</th>
+    <th>Cognome</th>
+    <th>Email</th>
+    <th>Comparto</th>
+    <th>Missione</th>
+    <th>Veicolo</th>
+    <th>Status</th>
+    <th>Azione</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+<script>
+  emailjs.init("UpmRJDi4GrrzXlzvC"); // la tua Public Key
+</script>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
+    authDomain: "attendance-2980e.firebaseapp.com",
+    projectId: "attendance-2980e",
+    storageBucket: "attendance-2980e.appspot.com",
+    messagingSenderId: "545038671009",
+    appId: "1:545038671009:web:05cd8f1490cf7d624164e0"
+};
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+// MAPPA
+const map = L.map('map').setView([38.097, 15.635], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+const markers = L.markerClusterGroup();
+map.addLayer(markers);
+
+const markerMap = {};
+let filteredDocs = [];
+
+// ==========================
+// VEICOLI
+// ==========================
+function loadVeicoli() {
+    const body = document.querySelector("#table-veicoli tbody");
+    body.innerHTML = "";
+
+    db.collection("veicoli").onSnapshot(snapshot => {
+        body.innerHTML = "";
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            body.innerHTML += `
+            <tr>
+                <td>${d.targa}</td>
+                <td>${d.modello}</td>
+                <td>${d.stato}</td>
+            </tr>`;
+        });
+    });
+}
+loadVeicoli();
+
+// ==========================
+// RICHIESTE
+// ==========================
+function loadRichieste() {
+    const body = document.querySelector("#table-richieste tbody");
+    body.innerHTML = "";
+
+    db.collection("richieste").onSnapshot(snapshot => {
+        body.innerHTML = "";
+        snapshot.forEach(doc => {
+            const r = doc.data();
+            body.innerHTML += `
+            <tr>
+                <td>${r.nome}</td>
+                <td>${r.cognome}</td>
+                <td>${r.email}</td>
+                <td>${r.comparto}</td>
+                  <td>${r.missione}</td>
+                <td>${r.veicolo}</td>
+                <td>${r.status}</td>
+                <td>
+                    <button class="btn-approve" onclick="approvaRichiesta('${doc.id}', '${r.veicolo}')">Approva</button>
+                    <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">Rifiuta</button>
+                </td>
+            </tr>`;
+        });
+    });
+}
+loadRichieste();
+
+// ==========================
+// APPROVAZIONE E EMAIL
+// ==========================
+function approvaRichiesta(idRichiesta, idVeicolo) {
+    if (!confirm("Confermi l'approvazione?")) return;
+
+    db.collection("richieste").doc(idRichiesta).get().then(snap => {
+        const r = snap.data();
+
+        if (!r.email || r.email.trim() === "") {
+            alert("Email non inviata: destinatario mancante.");
+            return;
+        }
+
+        db.collection("richieste").doc(idRichiesta).update({ status: "approvata" });
+        db.collection("veicoli").doc(idVeicolo).update({ stato: "occupato" });
+
+        emailjs.send("service_bshbwv4","template_stkcc3q", {
+            email: r.email,
+            nome: r.nome,
+            veicolo: r.veicolo
+        }).then(() => {
+            console.log("Email approvazione inviata!");
+        }).catch(err => console.error("Errore invio email:", err));
+
+        alert("Richiesta approvata!");
+    });
+}
+
+function rifiutaRichiesta(idRichiesta) {
+    if (!confirm("Confermi il rifiuto?")) return;
+
+    db.collection("richieste").doc(idRichiesta).get().then(snap => {
+        const r = snap.data();
+
+        if (!r.email || r.email.trim() === "") {
+            alert("Email non inviata: destinatario mancante.");
+            return;
+        }
+
+        db.collection("richieste").doc(idRichiesta).update({ status: "rifiutata" });
+
+        emailjs.send("service_bshbwv4",  "template_t767vqj", {
+            email: r.email,
+            nome: r.nome,
+            veicolo: r.veicolo || ""
+        }).then(() => {
+            console.log("Email rifiuto inviata!");
+        }).catch(err => console.error("Errore invio email:", err));
+
+        alert("Richiesta rifiutata!");
+    });
+}
+
+// ==========================
+// MARKER + REPORTS
+// ==========================
+function addMarker(lat, lng, comparto, tipoVeicolo, targa, pdf, jpg, id, validated) {
+    const pdfLink = pdf ? `<a href="${pdf}" target="_blank">PDF</a>` : "-";
+    const jpgLink = jpg ? `<a href="${jpg}" target="_blank">JPG</a>` : "-";
+
+    const marker = L.marker([lat, lng]);
+    marker.bindPopup(`
+        <b>${comparto}</b><br>
+        ${tipoVeicolo} - ${targa}<br>
+        ${pdfLink}<br>
+        ${jpgLink}
+    `);
+
+    markers.addLayer(marker);
+    markerMap[id] = marker;
+}
+
+function searchReports() {
+    const c = document.getElementById("searchComparto").value.toLowerCase();
+    const tv = document.getElementById("searchTipoVeicolo").value.toLowerCase();
+    const t = document.getElementById("searchTarga").value.toLowerCase();
+
+    const body = document.querySelector("#data-table tbody");
+    body.innerHTML = "";
+    markers.clearLayers();
+
+    db.collection("reports").get().then(snap => {
+        snap.forEach(doc => {
+            const d = doc.data();
+
+            if ((c && !d.comparto.toLowerCase().includes(c)) ||
+                (tv && !d.tipoVeicolo.toLowerCase().includes(tv)) ||
+                (t && !d.targa.toLowerCase().includes(t))) return;
+
+            addMarker(
+                d.latitudine,
+                d.longitudine,
+                d.comparto,
+                d.tipoVeicolo,
+                d.targa,
+                d.pdf,
+                d.jpg,
+                doc.id,
+                d.validated
+            );
+
+            const pdfLink = d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-";
+            const jpgLink = d.jpg ? `<a href="${d.jpg}" target="_blank">JPG</a>` : "-";
+
+            body.innerHTML += `
+            <tr>
+                <td>${d.latitudine}</td>
+                <td>${d.longitudine}</td>
+                <td>${d.comparto}</td>
+                <td>${d.tipoVeicolo}</td>
+                <td>${d.targa}</td>
+                <td>${pdfLink}</td>
+                <td>${jpgLink}</td>
+                <td>${d.validated ? "Si" : "No"}</td>
+                <td>
+                    <button class="btn-validate" onclick="validateDocument('${doc.id}')">Valida</button>
+                </td>
+            </tr>`;
+        });
+    });
+}
+
+window.onload = () => {
+    searchReports();
+};
+</script>
+
+</body>
+</html>

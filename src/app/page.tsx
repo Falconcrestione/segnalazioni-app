@@ -124,7 +124,17 @@ export default function Home() {
     <Link href="/richiedi-veicolo">
         <button style={btnStyle}>✏️ RICHIEDI VEICOLO</button>
       </Link>
+      <br></br>
+      <div>
+      <a href="/dashboard.html" target="_blank" rel="noopener noreferrer">
+  <button style={btnStyle}>
+    📊 Dashboard Admin
+  </button>
+  
+</a>
+
       
+    </div>
     </div>
     
   );
