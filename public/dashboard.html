@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pannello Gestione Veicoli e Reports</title>
+<title>Dashboard Veicoli & Reports</title>
 
 <!-- LEAFLET -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -11,348 +11,243 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
 <style>
-body {
-    font-family: Arial;
-    background: #f4f6f9;
-    padding: 20px;
-}
-h2 {
-    margin-top: 35px;
-    color: #333;
-}
-#map {
-    height: 450px;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 20px;
-    border: 2px solid #ccc;
-}
-table {
-    width: 100%;
-    margin-top: 15px;
-    border-collapse: collapse;
-    background: white;
-    border-radius: 10px;
-    overflow: hidden;
-}
-th {
-    background: #0070f3;
-    color: white;
-    padding: 10px;
-}
-td {
-    padding: 8px;
-    border-bottom: 1px solid #ddd;
-}
-tr:hover {
-    background: #f0f8ff;
-}
-button {
-    padding: 6px 12px;
-    border: none;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-}
-.btn-validate {
-    background: #28a745;
-    color: white;
-}
-.btn-delete {
-    background: #dc3545;
-    color: white;
-}
-.btn-approve {
-    background: #0070f3;
-    color: white;
-}
-.btn-reject {
-    background: #6c757d;
-    color: white;
-}
+body { font-family: Arial; background:#f4f6f9; padding:20px; }
+h2 { margin-top:30px; }
+#map { height:400px; margin-bottom:20px; border-radius:10px; }
+table { width:100%; border-collapse:collapse; background:#fff; }
+th { background:#0070f3; color:#fff; padding:8px; }
+td { padding:8px; border-bottom:1px solid #ddd; }
+select, input { padding:8px; margin-right:5px; }
+button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
+.btn-approve { background:#0070f3; color:#fff; }
+.btn-reject { background:#dc3545; color:#fff; }
 </style>
 </head>
+
 <body>
 
 <h1>🚓 Dashboard Gestione Veicoli & Reports</h1>
 
-<!-- MAPPA -->
-<div id="map"></div>
-
-<!-- FILTRI -->
-<div>
-    <input type="text" id="searchComparto" placeholder="Cerca per Comparto">
-    <input type="text" id="searchTipoVeicolo" placeholder="Cerca per Tipo Veicolo">
-    <input type="text" id="searchTarga" placeholder="Cerca per Targa">
-    <button onclick="searchReports()">Cerca</button>
+<!-- SELETTORE DISTRETTO / SUPERUSER -->
+<div style="margin-bottom:20px;">
+  <b>Vista:</b>
+  <select id="distrettoSelector" onchange="checkPassword()">
+    <option value="">-- Seleziona --</option>
+    <option value="ALL">🌍 Superuser – Tutti i distretti</option>
+    <option value="Distretto 1">Distretto 1</option>
+    <option value="Distretto 2">Distretto 2</option>
+    <option value="Distretto 3">Distretto 3</option>
+    <option value="Distretto 4">Distretto 4</option>
+    <option value="Distretto 5">Distretto 5</option>
+  </select>
 </div>
+
+<div id="map"></div>
 
 <!-- REPORTS -->
 <h2>📄 Reports</h2>
-<table id="data-table">
+<table>
 <thead>
 <tr>
-    <th>Lat</th>
-    <th>Lng</th>
-    <th>Comparto</th>
-    <th>Tipo Veicolo</th>
-    <th>Targa</th>
-    <th>PDF</th>
-    <th>JPG</th>
-    <th>Validato</th>
-    <th>Azione</th>
+  <th>Distretto</th>
+  <th>Comparto</th>
+  <th>Tipo Veicolo</th>
+  <th>Targa</th>
+  <th>PDF</th>
+  <th>Foto</th>
 </tr>
 </thead>
-<tbody></tbody>
+<tbody id="reportsBody"></tbody>
 </table>
 
 <!-- VEICOLI -->
 <h2>🚗 Veicoli</h2>
-<table id="table-veicoli">
+<table>
 <thead>
 <tr>
-    <th>Targa</th>
-    <th>Modello</th>
-    <th>Stato</th>
+  <th>Targa</th>
+  <th>Modello</th>
+  <th>Stato</th>
+  <th>Distretto</th>
 </tr>
 </thead>
-<tbody></tbody>
+<tbody id="veicoliBody"></tbody>
 </table>
 
-<!-- RICHIESTE VEICOLI -->
+<!-- RICHIESTE -->
 <h2>📨 Richieste Veicoli</h2>
-<table id="table-richieste">
+<table>
 <thead>
 <tr>
-    <th>Nome</th>
-    <th>Cognome</th>
-    <th>Email</th>
-    <th>Comparto</th>
-    <th>Missione</th>
-    <th>Veicolo</th>
-    <th>Status</th>
-    <th>Azione</th>
+  <th>Nome</th>
+  <th>Email</th>
+  <th>Veicolo</th>
+  <th>Distretto</th>
+  <th>Stato</th>
+  <th>Azione</th>
 </tr>
 </thead>
-<tbody></tbody>
+<tbody id="richiesteBody"></tbody>
 </table>
 
-<!-- Firebase -->
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
 
-<!-- Leaflet -->
+<!-- LEAFLET -->
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
-<!-- EmailJS -->
-<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 <script>
-  emailjs.init("UpmRJDi4GrrzXlzvC"); // la tua Public Key
-</script>
-
-<script>
-const firebaseConfig = {
-    apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
-    authDomain: "attendance-2980e.firebaseapp.com",
-    projectId: "attendance-2980e",
-    storageBucket: "attendance-2980e.appspot.com",
-    messagingSenderId: "545038671009",
-    appId: "1:545038671009:web:05cd8f1490cf7d624164e0"
-};
-firebase.initializeApp(firebaseConfig);
-
+/* ================= FIREBASE ================= */
+firebase.initializeApp({
+  apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
+  authDomain: "attendance-2980e.firebaseapp.com",
+  projectId: "attendance-2980e",
+});
 const db = firebase.firestore();
-const storage = firebase.storage();
 
-// MAPPA
-const map = L.map('map').setView([38.097, 15.635], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+/* ================= MAPPA ================= */
+const map = L.map("map").setView([38.1, 15.6], 12);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 const markers = L.markerClusterGroup();
 map.addLayer(markers);
 
-const markerMap = {};
-let filteredDocs = [];
+/* ================= PASSWORD ================= */
+const passwords = {
+  ALL: "superpass123",
+  "Distretto 1": "distretto1pass",
+  "Distretto 2": "distretto2pass",
+  "Distretto 3": "distretto3pass",
+  "Distretto 4": "distretto4pass",
+  "Distretto 5": "distretto5pass"
+};
 
-// ==========================
-// VEICOLI
-// ==========================
-function loadVeicoli() {
-    const body = document.querySelector("#table-veicoli tbody");
-    body.innerHTML = "";
+// Variabile di accesso
+let accessGranted = false;
 
-    db.collection("veicoli").onSnapshot(snapshot => {
-        body.innerHTML = "";
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            body.innerHTML += `
-            <tr>
-                <td>${d.targa}</td>
-                <td>${d.modello}</td>
-                <td>${d.stato}</td>
-            </tr>`;
-        });
-    });
-}
-loadVeicoli();
+function checkPassword() {
+  const select = document.getElementById("distrettoSelector");
+  const user = select.value;
+  if (!user) return;
 
-// ==========================
-// RICHIESTE
-// ==========================
-function loadRichieste() {
-    const body = document.querySelector("#table-richieste tbody");
-    body.innerHTML = "";
+  const pw = prompt("Inserisci la password per " + user);
+  if (pw !== passwords[user]) {
+    alert("Password errata!");
+    select.value = "";
+    accessGranted = false;
+    clearAllTables();
+    return;
+  }
 
-    db.collection("richieste").onSnapshot(snapshot => {
-        body.innerHTML = "";
-        snapshot.forEach(doc => {
-            const r = doc.data();
-            body.innerHTML += `
-            <tr>
-                <td>${r.nome}</td>
-                <td>${r.cognome}</td>
-                <td>${r.email}</td>
-                <td>${r.comparto}</td>
-                  <td>${r.missione}</td>
-                <td>${r.veicolo}</td>
-                <td>${r.status}</td>
-                <td>
-                    <button class="btn-approve" onclick="approvaRichiesta('${doc.id}', '${r.veicolo}')">Approva</button>
-                    <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">Rifiuta</button>
-                </td>
-            </tr>`;
-        });
-    });
-}
-loadRichieste();
-
-// ==========================
-// APPROVAZIONE E EMAIL
-// ==========================
-function approvaRichiesta(idRichiesta, idVeicolo) {
-    if (!confirm("Confermi l'approvazione?")) return;
-
-    db.collection("richieste").doc(idRichiesta).get().then(snap => {
-        const r = snap.data();
-
-        if (!r.email || r.email.trim() === "") {
-            alert("Email non inviata: destinatario mancante.");
-            return;
-        }
-
-        db.collection("richieste").doc(idRichiesta).update({ status: "approvata" });
-        db.collection("veicoli").doc(idVeicolo).update({ stato: "occupato" });
-
-        emailjs.send("service_bshbwv4","template_stkcc3q", {
-            email: r.email,
-            nome: r.nome,
-            veicolo: r.veicolo
-        }).then(() => {
-            console.log("Email approvazione inviata!");
-        }).catch(err => console.error("Errore invio email:", err));
-
-        alert("Richiesta approvata!");
-    });
+  alert("Accesso consentito: " + user);
+  accessGranted = true;
+  reloadAll();
 }
 
-function rifiutaRichiesta(idRichiesta) {
-    if (!confirm("Confermi il rifiuto?")) return;
-
-    db.collection("richieste").doc(idRichiesta).get().then(snap => {
-        const r = snap.data();
-
-        if (!r.email || r.email.trim() === "") {
-            alert("Email non inviata: destinatario mancante.");
-            return;
-        }
-
-        db.collection("richieste").doc(idRichiesta).update({ status: "rifiutata" });
-
-        emailjs.send("service_bshbwv4",  "template_t767vqj", {
-            email: r.email,
-            nome: r.nome,
-            veicolo: r.veicolo || ""
-        }).then(() => {
-            console.log("Email rifiuto inviata!");
-        }).catch(err => console.error("Errore invio email:", err));
-
-        alert("Richiesta rifiutata!");
-    });
+function distrettoAttivo() {
+  return document.getElementById("distrettoSelector").value;
 }
 
-// ==========================
-// MARKER + REPORTS
-// ==========================
-function addMarker(lat, lng, comparto, tipoVeicolo, targa, pdf, jpg, id, validated) {
-    const pdfLink = pdf ? `<a href="${pdf}" target="_blank">PDF</a>` : "-";
-    const jpgLink = jpg ? `<a href="${jpg}" target="_blank">JPG</a>` : "-";
-
-    const marker = L.marker([lat, lng]);
-    marker.bindPopup(`
-        <b>${comparto}</b><br>
-        ${tipoVeicolo} - ${targa}<br>
-        ${pdfLink}<br>
-        ${jpgLink}
-    `);
-
-    markers.addLayer(marker);
-    markerMap[id] = marker;
+/* ================= FUNZIONI DI CARICAMENTO ================= */
+function clearAllTables() {
+  document.getElementById("reportsBody").innerHTML = "";
+  document.getElementById("veicoliBody").innerHTML = "";
+  document.getElementById("richiesteBody").innerHTML = "";
+  markers.clearLayers();
 }
 
-function searchReports() {
-    const c = document.getElementById("searchComparto").value.toLowerCase();
-    const tv = document.getElementById("searchTipoVeicolo").value.toLowerCase();
-    const t = document.getElementById("searchTarga").value.toLowerCase();
+function loadReports() {
+  if (!accessGranted) return;
+  const body = document.getElementById("reportsBody");
+  body.innerHTML = "";
+  markers.clearLayers();
 
-    const body = document.querySelector("#data-table tbody");
+  db.collection("reports").onSnapshot(snap => {
     body.innerHTML = "";
     markers.clearLayers();
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (distrettoAttivo() !== "ALL" && d.distretto !== distrettoAttivo()) return;
 
-    db.collection("reports").get().then(snap => {
-        snap.forEach(doc => {
-            const d = doc.data();
+      body.innerHTML += `
+        <tr>
+          <td>${d.distretto}</td>
+          <td>${d.comparto}</td>
+          <td>${d.tipoVeicolo}</td>
+          <td>${d.targa}</td>
+          <td>${d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-"}</td>
+          <td>${d.jpg ? `<a href="${d.jpg}" target="_blank">Foto</a>` : "-"}</td>
+        </tr>
+      `;
 
-            if ((c && !d.comparto.toLowerCase().includes(c)) ||
-                (tv && !d.tipoVeicolo.toLowerCase().includes(tv)) ||
-                (t && !d.targa.toLowerCase().includes(t))) return;
-
-            addMarker(
-                d.latitudine,
-                d.longitudine,
-                d.comparto,
-                d.tipoVeicolo,
-                d.targa,
-                d.pdf,
-                d.jpg,
-                doc.id,
-                d.validated
-            );
-
-            const pdfLink = d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-";
-            const jpgLink = d.jpg ? `<a href="${d.jpg}" target="_blank">JPG</a>` : "-";
-
-            body.innerHTML += `
-            <tr>
-                <td>${d.latitudine}</td>
-                <td>${d.longitudine}</td>
-                <td>${d.comparto}</td>
-                <td>${d.tipoVeicolo}</td>
-                <td>${d.targa}</td>
-                <td>${pdfLink}</td>
-                <td>${jpgLink}</td>
-                <td>${d.validated ? "Si" : "No"}</td>
-                <td>
-                    <button class="btn-validate" onclick="validateDocument('${doc.id}')">Valida</button>
-                </td>
-            </tr>`;
-        });
+      if (d.latitudine && d.longitudine) {
+        markers.addLayer(L.marker([d.latitudine, d.longitudine]));
+      }
     });
+  });
 }
 
-window.onload = () => {
-    searchReports();
-};
+function loadVeicoli() {
+  if (!accessGranted) return;
+  const body = document.getElementById("veicoliBody");
+  body.innerHTML = "";
+
+  db.collection("veicoli").onSnapshot(snap => {
+    body.innerHTML = "";
+    snap.forEach(doc => {
+      const v = doc.data();
+      if (distrettoAttivo() !== "ALL" && v.distretto !== distrettoAttivo()) return;
+
+      body.innerHTML += `
+        <tr>
+          <td>${v.targa}</td>
+          <td>${v.modello}</td>
+          <td>${v.stato}</td>
+          <td>${v.distretto}</td>
+        </tr>
+      `;
+    });
+  });
+}
+
+function loadRichieste() {
+  if (!accessGranted) return;
+  const body = document.getElementById("richiesteBody");
+  body.innerHTML = "";
+
+  db.collection("richieste").onSnapshot(snap => {
+    body.innerHTML = "";
+    snap.forEach(doc => {
+      const r = doc.data();
+      if (distrettoAttivo() !== "ALL" && r.distretto !== distrettoAttivo()) return;
+
+      body.innerHTML += `
+        <tr>
+          <td>${r.nome}</td>
+          <td>${r.email}</td>
+          <td>${r.veicolo}</td>
+          <td>${r.distretto}</td>
+          <td>${r.status}</td>
+          <td>
+            <button class="btn-approve" onclick="db.collection('richieste').doc('${doc.id}').update({status:'approvata'})">OK</button>
+            <button class="btn-reject" onclick="db.collection('richieste').doc('${doc.id}').update({status:'rifiutata'})">NO</button>
+          </td>
+        </tr>
+      `;
+    });
+  });
+}
+
+function reloadAll() {
+  if (!accessGranted) return;
+  loadReports();
+  loadVeicoli();
+  loadRichieste();
+}
+
+// inizialmente niente da mostrare
+clearAllTables();
 </script>
 
 </body>
