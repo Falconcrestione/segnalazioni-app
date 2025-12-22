@@ -29,7 +29,7 @@ export default function Home() {
         </Link>
 
         <a href="/dashboard.html" target="_blank" rel="noopener noreferrer">
-          <button style={btn}>📊 DASHBOARD</button>
+          <button style={btn}>📊 DASHBOARD1</button>
         </a>
       </div>
     </div>
