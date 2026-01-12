@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { db } from "../../lib/firebase"; // percorso corretto
+import { db } from "../../lib/firebase";
 import { collection, addDoc, getDocs, Timestamp } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 // TIPI
 type Veicolo = {
@@ -11,12 +12,12 @@ type Veicolo = {
   modello: string;
   stato: string;
   comparto: string;
-  distretto: string;
+  distretto: number;
 };
 
 export default function RichiediVeicolo() {
+  const router = useRouter();
   const [veicoli, setVeicoli] = useState<Veicolo[]>([]);
-
   const [nome, setNome] = useState("");
   const [cognome, setCognome] = useState("");
   const [email, setEmail] = useState("");
@@ -33,59 +34,71 @@ export default function RichiediVeicolo() {
       const snap = await getDocs(collection(db, "veicoli"));
       const list: Veicolo[] = [];
       snap.forEach(doc => {
-        list.push({ id: doc.id, ...(doc.data() as Omit<Veicolo, "id">) });
+        const data = doc.data() as any;
+        if (typeof data.distretto === "number") {
+          list.push({ id: doc.id, ...data });
+        }
       });
       setVeicoli(list.filter(v => v.stato === "libero"));
     };
     loadCars();
   }, []);
 
-  // 📤 INVIO RICHIESTA
+  // 🔍 VEICOLI FILTRATI PER DISTRETTO
+  const veicoliFiltrati = veicoli.filter(v => {
+    if (!distretto) return false;
+    const numeroDistretto = Number(distretto.replace("Distretto ", ""));
+    return v.distretto === numeroDistretto;
+  });
+
+  // 📤 INVIO RICHIESTA CON GEOLOCALIZZAZIONE
   const send = async () => {
-    if (
-      !nome ||
-      !cognome ||
-      !email ||
-      !comparto ||
-      !missione ||
-      !distretto ||
-      !veicoloSelezionato
-    ) {
+    if (!nome || !cognome || !email || !comparto || !missione || !distretto || !veicoloSelezionato) {
       return alert("Compila tutti i campi");
     }
 
-    await addDoc(collection(db, "richieste"), {
-      nome,
-      cognome,
-      email,
-      comparto,
-      missione,
-      distretto,
+    if (!navigator.geolocation) {
+      return alert("Geolocalizzazione non supportata dal browser.");
+    }
 
-      veicoloId: veicoloSelezionato.id,
-      veicoloTarga: veicoloSelezionato.targa,
-      veicoloModello: veicoloSelezionato.modello,
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const numeroDistretto = Number(distretto.replace("Distretto ", ""));
 
-      status: "in attesa",
-      createdAt: Timestamp.now(),
-    });
+        await addDoc(collection(db, "richieste"), {
+          nome,
+          cognome,
+          email,
+          comparto,
+          missione,
+          distretto: numeroDistretto,
+          veicoloId: veicoloSelezionato.id,
+          veicoloTarga: veicoloSelezionato.targa,
+          veicoloModello: veicoloSelezionato.modello,
+          status: "in attesa",
+          createdAt: Timestamp.now(),
+          latitudine: lat,
+          longitudine: lng,
+        });
 
-    alert("Richiesta inviata!");
+        alert("Richiesta inviata con posizione!");
 
-    // reset
-    setNome("");
-    setCognome("");
-    setEmail("");
-    setComparto("");
-    setMissione("");
-    setDistretto("");
-    setVeicoloSelezionato(null);
+        // reset form
+        setNome("");
+        setCognome("");
+        setEmail("");
+        setComparto("");
+        setMissione("");
+        setDistretto("");
+        setVeicoloSelezionato(null);
+      },
+      () => {
+        alert("Non è stato possibile ottenere la posizione.");
+      }
+    );
   };
-
-  // 🔍 VEICOLI FILTRATI PER DISTRETTO
-  const veicoliFiltrati = veicoli.filter(
-    v => v.distretto === distretto
-  );
 
   return (
     <div style={container}>
@@ -122,6 +135,25 @@ export default function RichiediVeicolo() {
 
       <button onClick={send}>Invia richiesta</button>
 
+      <div>
+        <button
+          onClick={() => router.push("/forestazione1/libera_veicolo")}
+          style={{
+            marginTop: 12,
+            background: "#28a745",
+            color: "white",
+            padding: 12,
+            borderRadius: 6,
+            fontWeight: "bold",
+            border: "none",
+            cursor: "pointer",
+            width: "100%",
+          }}
+        >
+          📄 Invia report / Libera veicolo
+        </button>
+      </div>
+
       <style jsx>{`
         input, select {
           width: 100%;
@@ -149,7 +181,6 @@ export default function RichiediVeicolo() {
   );
 }
 
-// STILI
 const container: React.CSSProperties = {
   maxWidth: 420,
   margin: "40px auto",

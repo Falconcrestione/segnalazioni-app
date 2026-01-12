@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image"; // ✅ import Image di Next.js
 
 export default function Home() {
   return (
@@ -15,6 +16,15 @@ export default function Home() {
         fontFamily: "sans-serif",
       }}
     >
+      {/* LOGO */}
+      <Image
+        src="/calabriaverde.png" // ✅ path relativo a public/
+        alt="Logo Calabria Verde"
+        width={150}               // puoi cambiare larghezza
+        height={150}              // puoi cambiare altezza
+        style={{ marginBottom: "2rem" }}
+      />
+
       <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: 700 }}>
         GESTIONE AUTOPARCO<br />AZIENDA CALABRIA VERDE
       </h1>

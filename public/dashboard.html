@@ -21,6 +21,9 @@ select, input { padding:8px; margin-right:5px; }
 button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 .btn-approve { background:#0070f3; color:#fff; }
 .btn-reject { background:#dc3545; color:#fff; }
+/* LEGENDA */
+.info.legend { font-size:14px; line-height:18px; color:#333; }
+.info.legend i { width: 25px; height: 41px; float: left; margin-right: 8px; background-size: contain; background-repeat: no-repeat; }
 </style>
 </head>
 
@@ -28,24 +31,31 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 
 <h1>🚓 Dashboard Gestione Veicoli & Reports</h1>
 
-<!-- SELETTORE DISTRETTO / SUPERUSER -->
 <div style="margin-bottom:20px;">
   <b>Vista:</b>
   <select id="distrettoSelector" onchange="checkPassword()">
     <option value="">-- Seleziona --</option>
     <option value="ALL">🌍 Superuser – Tutti i distretti</option>
-    <option value="Distretto 1">Distretto 1</option>
-    <option value="Distretto 2">Distretto 2</option>
-    <option value="Distretto 3">Distretto 3</option>
-    <option value="Distretto 4">Distretto 4</option>
-    <option value="Distretto 5">Distretto 5</option>
+    <option value="1">Distretto 1</option>
+    <option value="2">Distretto 2</option>
+    <option value="3">Distretto 3</option>
+    <option value="4">Distretto 4</option>
+    <option value="5">Distretto 5</option>
   </select>
+
+  <input type="text" id="searchTarga" placeholder="Cerca per targa" oninput="cercaTarga()" />
 </div>
 
 <div id="map"></div>
 
-<!-- REPORTS -->
 <h2>📄 Reports</h2>
+
+<!-- PULSANTI MOSTRA RECENTI / TUTTI -->
+<div style="margin-bottom:10px;">
+  <button class="btn-approve" onclick="reportsMode='recent'; loadReports();">Mostra recenti</button>
+  <button class="btn-approve" onclick="reportsMode='all'; loadReports();">Mostra tutti</button>
+</div>
+
 <table>
 <thead>
 <tr>
@@ -60,7 +70,6 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <tbody id="reportsBody"></tbody>
 </table>
 
-<!-- VEICOLI -->
 <h2>🚗 Veicoli</h2>
 <table>
 <thead>
@@ -74,7 +83,6 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <tbody id="veicoliBody"></tbody>
 </table>
 
-<!-- RICHIESTE -->
 <h2>📨 Richieste Veicoli</h2>
 <table>
 <thead>
@@ -98,8 +106,10 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
+<!-- EMAILJS -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
 <script>
-/* ================= FIREBASE ================= */
 firebase.initializeApp({
   apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
   authDomain: "attendance-2980e.firebaseapp.com",
@@ -107,23 +117,45 @@ firebase.initializeApp({
 });
 const db = firebase.firestore();
 
-/* ================= MAPPA ================= */
+// EmailJS init
+emailjs.init("0_vuI9zt_GvbEmGVp");
+
+// MAPPA
 const map = L.map("map").setView([38.1, 15.6], 12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-const markers = L.markerClusterGroup();
-map.addLayer(markers);
 
-/* ================= PASSWORD ================= */
+// DUE CLUSTER SEPARATI
+const markersReport = L.markerClusterGroup();
+const markersRichieste = L.markerClusterGroup();
+map.addLayer(markersReport);
+map.addLayer(markersRichieste);
+
+// LEGENDA MARKER
+const legend = L.control({ position: "topright" });
+legend.onAdd = function(map) {
+  const div = L.DomUtil.create("div", "info legend");
+  div.style.background = "#fff";
+  div.style.padding = "10px";
+  div.style.borderRadius = "5px";
+  div.style.boxShadow = "0 0 5px rgba(0,0,0,0.3)";
+  div.innerHTML = `
+    <h4>Legenda</h4>
+    <i style="background-image:url('https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png')"></i> Report<br>
+    <i style="background-image:url('https://cdn-icons-png.flaticon.com/512/190/190411.png')"></i> Richiesta approvata
+  `;
+  return div;
+};
+legend.addTo(map);
+
+// PASSWORD
 const passwords = {
   ALL: "superpass123",
-  "Distretto 1": "distretto1pass",
-  "Distretto 2": "distretto2pass",
-  "Distretto 3": "distretto3pass",
-  "Distretto 4": "distretto4pass",
-  "Distretto 5": "distretto5pass"
+  1: "distretto1pass",
+  2: "distretto2pass",
+  3: "distretto3pass",
+  4: "distretto4pass",
+  5: "distretto5pass"
 };
-
-// Variabile di accesso
 let accessGranted = false;
 
 function checkPassword() {
@@ -131,7 +163,7 @@ function checkPassword() {
   const user = select.value;
   if (!user) return;
 
-  const pw = prompt("Inserisci la password per " + user);
+  const pw = prompt("Inserisci la password per " + (user==="ALL" ? "Superuser" : "Distretto "+user));
   if (pw !== passwords[user]) {
     alert("Password errata!");
     select.value = "";
@@ -140,64 +172,45 @@ function checkPassword() {
     return;
   }
 
-  alert("Accesso consentito: " + user);
+  alert("Accesso consentito: " + (user==="ALL" ? "Superuser" : "Distretto "+user));
   accessGranted = true;
   reloadAll();
 }
 
 function distrettoAttivo() {
-  return document.getElementById("distrettoSelector").value;
+  const val = document.getElementById("distrettoSelector").value;
+  return val === "ALL" ? "ALL" : Number(val);
 }
 
-/* ================= FUNZIONI DI CARICAMENTO ================= */
+// FUNZIONI UTILI
 function clearAllTables() {
   document.getElementById("reportsBody").innerHTML = "";
   document.getElementById("veicoliBody").innerHTML = "";
   document.getElementById("richiesteBody").innerHTML = "";
-  markers.clearLayers();
+  markersReport.clearLayers();
+  markersRichieste.clearLayers();
 }
 
-function loadReports() {
-  if (!accessGranted) return;
-  const body = document.getElementById("reportsBody");
-  body.innerHTML = "";
-  markers.clearLayers();
-
-  db.collection("reports").onSnapshot(snap => {
-    body.innerHTML = "";
-    markers.clearLayers();
-    snap.forEach(doc => {
-      const d = doc.data();
-      if (distrettoAttivo() !== "ALL" && d.distretto !== distrettoAttivo()) return;
-
-      body.innerHTML += `
-        <tr>
-          <td>${d.distretto}</td>
-          <td>${d.comparto}</td>
-          <td>${d.tipoVeicolo}</td>
-          <td>${d.targa}</td>
-          <td>${d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-"}</td>
-          <td>${d.jpg ? `<a href="${d.jpg}" target="_blank">Foto</a>` : "-"}</td>
-        </tr>
-      `;
-
-      if (d.latitudine && d.longitudine) {
-        markers.addLayer(L.marker([d.latitudine, d.longitudine]));
-      }
-    });
-  });
-}
+/* ================= VEICOLI ================= */
+let veicoliCache = [];
+let reportsMode = "recent"; // <-- aggiunto: mostra solo i primi 20 per default
 
 function loadVeicoli() {
   if (!accessGranted) return;
   const body = document.getElementById("veicoliBody");
   body.innerHTML = "";
+  veicoliCache = [];
 
   db.collection("veicoli").onSnapshot(snap => {
     body.innerHTML = "";
+    veicoliCache = [];
+
     snap.forEach(doc => {
       const v = doc.data();
+      if (typeof v.distretto !== "number") return;
       if (distrettoAttivo() !== "ALL" && v.distretto !== distrettoAttivo()) return;
+
+      veicoliCache.push({...v, id: doc.id});
 
       body.innerHTML += `
         <tr>
@@ -211,34 +224,159 @@ function loadVeicoli() {
   });
 }
 
+/* ================= REPORTS ================= */
+function loadReports() {
+  if (!accessGranted) return;
+  const body = document.getElementById("reportsBody");
+  body.innerHTML = "";
+  markersReport.clearLayers();
+
+  db.collection("reports").onSnapshot(snap => {
+    body.innerHTML = "";
+
+    let reportsList = snap.docs.map(doc => doc.data());
+
+    // APPLICA FILTRO "RECENTI"
+    if (reportsMode === "recent") {
+      reportsList = reportsList.slice(-20);
+    }
+
+    reportsList.forEach(d => {
+      if (!d.distretto) return;
+      const active = distrettoAttivo();
+      let reportDistrettoNum = typeof d.distretto === "number"
+        ? d.distretto
+        : Number(d.distretto.replace("Distretto ", ""));
+      if (active !== "ALL" && reportDistrettoNum !== active) return;
+
+      body.innerHTML += `
+        <tr>
+          <td>${d.distretto}</td>
+          <td>${d.comparto}</td>
+          <td>${d.tipoVeicolo}</td>
+          <td>${d.targa}</td>
+          <td>${d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-"}</td>
+          <td>${d.jpg ? `<a href="${d.jpg}" target="_blank">Foto</a>` : "-"}</td>
+        </tr>
+      `;
+
+      const lat = Number(d.latitudine);
+      const lon = Number(d.longitudine);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        const marker = L.marker([lat, lon], {
+          icon: L.icon({
+            iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [0, -41]
+          })
+        });
+        marker.bindPopup(`
+          <b>${d.tipoVeicolo}</b><br>
+          Targa: ${d.targa}<br>
+          Distretto: ${d.distretto}<br>
+          Comparto: ${d.comparto}
+        `);
+        markersReport.addLayer(marker);
+      }
+    });
+  });
+}
+
+/* ================= RICHIESTE ================= */
 function loadRichieste() {
   if (!accessGranted) return;
   const body = document.getElementById("richiesteBody");
   body.innerHTML = "";
+  markersRichieste.clearLayers();
 
   db.collection("richieste").onSnapshot(snap => {
     body.innerHTML = "";
     snap.forEach(doc => {
       const r = doc.data();
+      if (typeof r.distretto !== "number") return;
       if (distrettoAttivo() !== "ALL" && r.distretto !== distrettoAttivo()) return;
+
+      let azioni = "";
+      if (r.status === "in attesa") {
+        azioni = `
+          <button class="btn-approve" 
+            onclick="approvaRichiesta('${doc.id}', '${r.veicoloId}', '${r.veicoloTarga}', '${r.email}')">OK</button>
+          <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">NO</button>
+        `;
+      } else if (r.status === "approvata") {
+        azioni = `
+          <button class="btn-approve" onclick="completaMissione('${doc.id}', '${r.veicoloId}')">✅ Completa Missione</button>
+        `;
+      }
 
       body.innerHTML += `
         <tr>
           <td>${r.nome}</td>
           <td>${r.email}</td>
-          <td>${r.veicolo}</td>
+          <td>${r.veicoloTarga || r.veicolo}</td>
           <td>${r.distretto}</td>
           <td>${r.status}</td>
-          <td>
-            <button class="btn-approve" onclick="db.collection('richieste').doc('${doc.id}').update({status:'approvata'})">OK</button>
-            <button class="btn-reject" onclick="db.collection('richieste').doc('${doc.id}').update({status:'rifiutata'})">NO</button>
-          </td>
+          <td>${azioni}</td>
         </tr>
       `;
+
+      if (r.status === "approvata" && r.latitudine && r.longitudine) {
+        const marker = L.marker([r.latitudine, r.longitudine], {icon: L.icon({
+          iconUrl: 'https://cdn-icons-png.flaticon.com/512/190/190411.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [0, -41]
+        })});
+        marker.bindPopup(`
+          <b>Richiesta approvata</b><br>
+          Veicolo: ${r.veicoloTarga || r.veicolo}<br>
+          Distretto: ${r.distretto}<br>
+          Utente: ${r.nome}
+        `);
+        markersRichieste.addLayer(marker);
+      }
     });
   });
 }
 
+// APPROVA / RIFIUTA / COMPLETA / EMAIL
+async function approvaRichiesta(richiestaId, veicoloId, veicoloTarga, emailDestinatario) {
+  if (!navigator.geolocation) { alert("Geolocalizzazione non supportata!"); return; }
+  navigator.geolocation.getCurrentPosition(async posizione => {
+    const lat = posizione.coords.latitude;
+    const lng = posizione.coords.longitude;
+    try {
+      await db.collection('richieste').doc(richiestaId).update({ status: 'approvata', latitudine: lat, longitudine: lng });
+      await db.collection('veicoli').doc(veicoloId).update({ stato: 'occupato' });
+      inviaMail(emailDestinatario, veicoloTarga);
+      reloadAll();
+      alert("Richiesta approvata con posizione registrata!");
+    } catch(err) { console.error(err); alert('Errore approvazione'); }
+  }, err => { alert("Permesso posizione negato."); console.error(err); }, {enableHighAccuracy:true,timeout:10000,maximumAge:0});
+}
+
+async function rifiutaRichiesta(richiestaId) {
+  try { await db.collection('richieste').doc(richiestaId).update({ status: 'rifiutata' }); reloadAll(); }
+  catch(err){ console.error(err); alert('Errore rifiuto richiesta'); }
+}
+
+async function completaMissione(richiestaId, veicoloId) {
+  try { await db.collection('veicoli').doc(veicoloId).update({ stato: 'libero' });
+        await db.collection('richieste').doc(richiestaId).update({ status: 'completata' });
+        reloadAll(); alert("Veicolo liberato e missione completata!"); }
+  catch(err){ console.error(err); alert('Errore completamento missione'); }
+}
+
+async function inviaMail(emailDestinatario, veicoloTarga) {
+  try {
+    const params = { to_email: emailDestinatario, veicolo: veicoloTarga, from_name: "Dashboard Veicoli" };
+    await emailjs.send("service_w1or5ah", "template_e2exsif", params);
+    console.log("Email inviata a " + emailDestinatario);
+  } catch (err) { console.error("Errore invio email:", err); }
+}
+
+// RELOAD
 function reloadAll() {
   if (!accessGranted) return;
   loadReports();

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { db, storage } from "../lib/firebase";
+import { db, storage } from "../../lib/firebase";
 import { collection, addDoc, Timestamp, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { DISTRETTI } from "../lib/distretti";
+import { DISTRETTI } from "../../lib/distretti";
 import React from "react";
 
 export default function Sorveglianza() {
@@ -108,7 +108,7 @@ alert('veicolo liberato correttamente');
 
   return (
     <div style={container}>
-      <h2>SORVEGLIANZA – INVIO REPORT</h2>
+      <h2>FORESTAZIONE – INVIO REPORT</h2>
 
       {/* DISTRETTO */}
       <select

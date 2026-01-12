@@ -4,9 +4,18 @@ import { collection, addDoc,  getDocs, query, where, updateDoc } from "firebase/
 
 export async function GET() {
   const veicoli = [
-    { targa: "AA001AA", modello: "Fiat Panda 1.2", comparto: "sorveglianza", distretto: 1 },
-    { targa: "AA002AA", modello: "Fiat Panda 1.2", comparto: "sorveglianza", distretto: 1 },
-    { targa: "AB011AB", modello: "Opel Corsa", comparto: "forestazione", distretto: 2 },
+    { targa: "AA001AR", modello: "Fiat Panda 1.2", comparto: "sorveglianza", distretto: 1 },
+    { targa: "AA002AW", modello: "Fiat Panda 1.2", comparto: "sorveglianza", distretto: 1 },
+     {targa: "AA002AZ", modello: "y10 1.2", comparto: "sorveglianza", distretto: 1},
+      {targa: "AA002AB", modello: "renault clio 1.2", comparto: "sorveglianza", distretto: 1},
+       {targa: "AA002AC", modello: "renaulr captur 1.2", comparto: "sorveglianza", distretto:2},
+        {targa: "AA002AD", modello: "scenic 1.2", comparto: "sorveglianza", distretto: 2},
+    { targa: "AB011AE", modello: "Opel Corsa", comparto: "forestazione", distretto: 2 },
+     {targa: "AA002AF", modello: "fiesta 1.2", comparto: "sorveglianza", distretto: 3},
+      {targa: "AA002AG", modello: "lancia 1.2", comparto: "sorveglianza", distretto: 3},
+       {targa: "AA002AH", modello: "ford 1.2", comparto: "sorveglianza", distretto: 3},
+        {targa: "AA002AL", modello: "fiat 500 1.2", comparto: "sorveglianza", distretto: 4},
+         {targa: "AA002AM", modello: "nissan 1.2", comparto: "sorveglianza", distretto: 4},
     // aggiungi qui i veicoli veri
   ];
 
