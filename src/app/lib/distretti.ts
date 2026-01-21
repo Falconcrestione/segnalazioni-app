@@ -9,5 +9,6 @@ export const DISTRETTI = [
   "Distretto 8",
   "Distretto 9",
   "Distretto 10",
-  "Distretto 11"
+  "Distretto 11",
+  "Sede_Centrale",
 ];

@@ -13,13 +13,15 @@ export default function Sorveglianza() {
   const [tipoVeicolo, setTipoVeicolo] = useState("");
   const [targa, setTarga] = useState("");
 
+  const [kmPartenza, setKmPartenza] = useState("");
+  const [kmArrivo, setKmArrivo] = useState("");
+
   const [compiledPdf, setCompiledPdf] = useState<File | null>(null);
   const [jpgFile, setJpgFile] = useState<File | null>(null);
 
   const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // GEOLOCALIZZAZIONE
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       pos =>
@@ -31,17 +33,19 @@ export default function Sorveglianza() {
     );
   }, []);
 
-  // INVIO REPORT
   const handleSend = async () => {
     if (!distretto) return alert("Seleziona il distretto");
     if (!comparto || !tipoVeicolo || !targa) return alert("Compila tutti i campi");
+    if (!kmPartenza || !kmArrivo) return alert("Inserisci KM partenza e arrivo");
     if (!compiledPdf) return alert("Carica il PDF");
     if (!latLng) return alert("Posizione non disponibile");
+
+    const kmGiornalieri = Number(kmArrivo) - Number(kmPartenza);
+    if (kmGiornalieri < 0) return alert("KM arrivo non validi");
 
     setLoading(true);
 
     try {
-      // Upload PDF
       const pdfRef = ref(
         storage,
         `reports/sorveglianza/distretto_${distretto}/${Date.now()}_${targa}.pdf`
@@ -49,7 +53,6 @@ export default function Sorveglianza() {
       await uploadBytes(pdfRef, compiledPdf);
       const pdfUrl = await getDownloadURL(pdfRef);
 
-      // Upload JPG (opzionale)
       let jpgUrl: string | null = null;
       if (jpgFile) {
         const jpgRef = ref(
@@ -60,13 +63,17 @@ export default function Sorveglianza() {
         jpgUrl = await getDownloadURL(jpgRef);
       }
 
-      // Salvataggio Firestore
       await addDoc(collection(db, "reports"), {
         flusso: "sorveglianza",
         distretto,
         comparto,
         tipoVeicolo,
         targa,
+
+        kmPartenza: Number(kmPartenza),
+        kmArrivo: Number(kmArrivo),
+        kmGiornalieri,
+
         pdf: pdfUrl,
         jpg: jpgUrl,
         latitudine: latLng.lat,
@@ -75,27 +82,25 @@ export default function Sorveglianza() {
         createdAt: Timestamp.now(),
       });
 
-     // 🔓 LIBERA IL VEICOLO
-try {
-  const veicoloQuery = query(collection(db, "veicoli"), where("targa", "==", targa));
-  const veicoloSnap = await getDocs(veicoloQuery);
+      try {
+        const veicoloQuery = query(collection(db, "veicoli"), where("targa", "==", targa));
+        const veicoloSnap = await getDocs(veicoloQuery);
 
-  if (!veicoloSnap.empty) {
-    await updateDoc(veicoloSnap.docs[0].ref, { stato: "libero" });
-    console.log("Veicolo liberato:", targa);
-  } else {
-    console.warn("Veicolo non trovato per targa:", targa);
-  }
-} catch (err) {
-  console.error("Errore nel liberare il veicolo:", err);
-}
-alert('veicolo liberato correttamente');
+        if (!veicoloSnap.empty) {
+          await updateDoc(veicoloSnap.docs[0].ref, { stato: "libero" });
+        }
+      } catch (err) {
+        console.error("Errore liberazione veicolo:", err);
+      }
 
-      // reset campi
+      alert("Report inviato e veicolo liberato");
+
       setDistretto("");
       setComparto("");
       setTipoVeicolo("");
       setTarga("");
+      setKmPartenza("");
+      setKmArrivo("");
       setCompiledPdf(null);
       setJpgFile(null);
     } catch (err) {
@@ -108,65 +113,35 @@ alert('veicolo liberato correttamente');
 
   return (
     <div style={container}>
-      <h2>FORESTAZIONE – INVIO REPORT</h2>
+      <h2>SORVEGLIANZA – INVIO REPORT</h2>
 
-      {/* DISTRETTO */}
-      <select
-        value={distretto}
-        onChange={e => setDistretto(e.target.value)}
-        style={input}
-      >
-        <option value="">Seleziona Distretto</option>
-        {DISTRETTI.map(d => (
-          <option key={d} value={d}>
-            {d}
-          </option>
-        ))}
-      </select>
+      <h3>Documentazione</h3>
 
-      <input
-        style={input}
-        placeholder="Comparto"
-        value={comparto}
-        onChange={e => setComparto(e.target.value)}
-      />
-
-      <input
-        style={input}
-        placeholder="Tipo Veicolo"
-        value={tipoVeicolo}
-        onChange={e => setTipoVeicolo(e.target.value)}
-      />
-
-      <input
-        style={input}
-        placeholder="Targa"
-        value={targa}
-        onChange={e => setTarga(e.target.value)}
-      />
-
-      {/* BOTTONE COMPILA PDF */}
-      <a
-        href="/report_auto_fillable.pdf"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a href="/report_auto_fillable.pdf" target="_blank">
         <button style={btn}>✏️ Compila PDF</button>
       </a>
 
       <label>PDF compilato</label>
-      <input
-        type="file"
-        accept="application/pdf"
-        onChange={e => setCompiledPdf(e.target.files?.[0] || null)}
-      />
+      <input type="file" accept="application/pdf" onChange={e => setCompiledPdf(e.target.files?.[0] || null)} />
 
       <label>Foto (opzionale)</label>
-      <input
-        type="file"
-        accept="image/*"
-        onChange={e => setJpgFile(e.target.files?.[0] || null)}
-      />
+      <input type="file" accept="image/*" onChange={e => setJpgFile(e.target.files?.[0] || null)} />
+
+      <h3>Dati Veicolo</h3>
+
+      <select value={distretto} onChange={e => setDistretto(e.target.value)} style={input}>
+        <option value="">Seleziona Distretto</option>
+        {DISTRETTI.map(d => (
+          <option key={d} value={d}>{d}</option>
+        ))}
+      </select>
+
+      <input style={input} placeholder="Comparto" value={comparto} onChange={e => setComparto(e.target.value)} />
+      <input style={input} placeholder="Tipo Veicolo" value={tipoVeicolo} onChange={e => setTipoVeicolo(e.target.value)} />
+      <input style={input} placeholder="Targa" value={targa} onChange={e => setTarga(e.target.value)} />
+
+      <input style={input} type="number" placeholder="KM Partenza" value={kmPartenza} onChange={e => setKmPartenza(e.target.value)} />
+      <input style={input} type="number" placeholder="KM Arrivo" value={kmArrivo} onChange={e => setKmArrivo(e.target.value)} />
 
       <button onClick={handleSend} disabled={loading} style={btn}>
         {loading ? "Invio..." : "📤 Invia Report"}
@@ -175,7 +150,6 @@ alert('veicolo liberato correttamente');
   );
 }
 
-// STILI
 const container: React.CSSProperties = {
   maxWidth: 400,
   margin: "40px auto",
