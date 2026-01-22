@@ -11,13 +11,14 @@ export default function RichiediVeicolo() {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [comparto, setComparto] = useState("");
+  const [dataMissione, setDataMissione] = useState("");
   const [missione, setMissione] = useState("");
   const [distretto, setDistretto] = useState("");
 
   const distretti = Array.from({ length: 11 }, (_, i) => `Distretto ${i + 1}`);
 
   const send = async () => {
-    if (!nome || !email || !comparto || !missione || !distretto) {
+    if (!nome || !email || !comparto || !dataMissione || !missione || !distretto) {
       return alert("Compila tutti i campi");
     }
 
@@ -35,6 +36,7 @@ export default function RichiediVeicolo() {
           nome,
           email,
           comparto,
+          dataMissione: Timestamp.fromDate(new Date(dataMissione)),
           missione,
           distretto: numeroDistretto,
           status: "in attesa",
@@ -48,6 +50,7 @@ export default function RichiediVeicolo() {
         setNome("");
         setEmail("");
         setComparto("");
+        setDataMissione("");
         setMissione("");
         setDistretto("");
       },
@@ -62,6 +65,14 @@ export default function RichiediVeicolo() {
       <input placeholder="Nome e Cognome" value={nome} onChange={e => setNome(e.target.value)} />
       <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
       <input placeholder="Comparto" value={comparto} onChange={e => setComparto(e.target.value)} />
+
+      {/* 📅 CALENDARIO */}
+      <input
+        type="date"
+        value={dataMissione}
+        onChange={e => setDataMissione(e.target.value)}
+      />
+
       <input placeholder="Missione" value={missione} onChange={e => setMissione(e.target.value)} />
 
       <select value={distretto} onChange={e => setDistretto(e.target.value)}>

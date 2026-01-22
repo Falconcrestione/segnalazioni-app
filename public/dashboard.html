@@ -99,11 +99,13 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <tr>
   <th>Nome</th>
   <th>Email</th>
+  <th>Data Missione</th>
   <th>Veicolo</th>
   <th>Distretto</th>
   <th>Stato</th>
   <th>Azione</th>
 </tr>
+
 </thead>
 <tbody id="richiesteBody"></tbody>
 </table>
@@ -260,17 +262,23 @@ function loadRichieste() {
         } else if(r.status==="approvata"){
           azioni=`<button class="btn-approve" onclick="completaMissione('${doc.id}','${r.veicoloId}')">✅ Completa Missione</button>`;
         }
+        const dataMissione = r.dataMissione
+  ? r.dataMissione.toDate().toLocaleDateString("it-IT")
+  : "-";
 
-        body.innerHTML+=`
-          <tr>
-            <td>${r.nome}</td>
-            <td>${r.email}</td>
-            <td>${r.veicoloTarga||r.veicolo}</td>
-            <td>${r.distretto}</td>
-            <td>${r.status}</td>
-            <td>${azioni}</td>
-          </tr>
-        `;
+
+       body.innerHTML+=`
+  <tr>
+    <td>${r.nome}</td>
+    <td>${r.email}</td>
+    <td>${dataMissione}</td>
+    <td>${r.veicoloTarga||r.veicolo}</td>
+    <td>${r.distretto}</td>
+    <td>${r.status}</td>
+    <td>${azioni}</td>
+  </tr>
+`;
+
 
         if(r.status==="approvata" && r.latitudine && r.longitudine){
           const marker=L.marker([r.latitudine,r.longitudine],{icon:L.icon({
