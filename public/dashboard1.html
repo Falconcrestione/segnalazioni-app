@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Mezzi Meccacici & Reports</title>
+
+<!-- LEAFLET -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+<style>
+body { font-family: Arial; background:#f4f6f9; padding:20px; }
+h2 { margin-top:30px; }
+#map { height:400px; margin-bottom:20px; border-radius:10px; }
+table { width:100%; border-collapse:collapse; background:#fff; }
+th { background:#0070f3; color:#fff; padding:8px; }
+td { padding:8px; border-bottom:1px solid #ddd; }
+select, input { padding:8px; margin-right:5px; }
+button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
+.btn-approve { background:#0070f3; color:#fff; }
+.btn-reject { background:#dc3545; color:#fff; }
+.info.legend { font-size:14px; line-height:18px; color:#333; }
+.info.legend i { width:25px; height:41px; float:left; margin-right:8px; background-size:contain; background-repeat:no-repeat; }
+</style>
+</head>
+
+<body>
+
+<h1>🚓 Dashboard Gestione Mezzi Meccanici & Reports</h1>
+
+<div style="margin-bottom:20px;">
+  <b>Vista:</b>
+  <select id="distrettoSelector" onchange="checkPassword()">
+    <option value="">-- Seleziona --</option>
+    <option value="ALL">🌍 Superuser – Tutti i distretti</option>
+    <option value="1">Distretto 1</option>
+    <option value="2">Distretto 2</option>
+    <option value="3">Distretto 3</option>
+    <option value="4">Distretto 4</option>
+    <option value="5">Distretto 5</option>
+    <option value="6">Distretto 6</option>
+    <option value="7">Distretto 7</option>
+    <option value="8">Distretto 8</option>
+    <option value="9">Distretto 9</option>
+    <option value="10">Distretto 10</option>
+    <option value="11">Distretto 11</option>
+    <option value="sede_centrale">Sede Centrale</option>
+  </select>
+
+  <input type="text" id="cercaReportsmezzi" placeholder="Cerca per targa" oninput="cercaReportsmezzi()" />
+</div>
+
+<div id="map"></div>
+
+<h2>📄 Reports</h2>
+
+<div style="margin-bottom:10px;">
+  <button class="btn-approve" onclick="reportsMode='recent'; loadReports();">Mostra recenti</button>
+  <button class="btn-approve" onclick="reportsMode='all'; loadReports();">Mostra tutti</button>
+</div>
+
+<h3 id="totKm">Totale KM: 0</h3>
+<div style="max-height: 350px; overflow-y: auto; border:1px solid #ccc;">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead style="position: sticky; top: 0; background:#0070f3; color:white; z-index:1;">
+<table>
+<thead>
+<tr>
+  <th>Data / Ora</th>
+  <th>Distretto</th>
+  <th>Sito Intervento</th>
+  <th>Tipo Mezzo</th>
+  <th>Identificativo</th>
+  <th>PDF</th>
+  
+</tr>
+</thead>
+<tbody id="reportsBody"></tbody>
+</table>
+</div>
+
+<div style="max-height: 350px; overflow-y: auto; border:1px solid #ccc;">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead style="position: sticky; top: 0; background:#0070f3; color:white; z-index:1;">
+
+      <h2>Dislocazione Mezzi Meccanici</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Data/ora</th>
+      <th>Tipo Mezzo</th>
+      <th>Identificativo</th>
+      <th>Sito intervento</th>
+      <th>Durata Lavori presunta (giorni)</th>
+      <th>Stato</th> <!-- nuova colonna -->
+    </tr>
+  </thead>
+  <tbody id="dislocazioneBody"></tbody>
+</table>
+</div>
+
+<h2>🚗 Mezzi Meccanici</h2>
+
+<div style="max-height:350px; overflow-y:auto; border:1px solid #ccc; border-radius:6px;">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="position:sticky; top:0; background:#0070f3; color:white; z-index:2;">
+          Identificativo
+        </th>
+        <th style="position:sticky; top:0; background:#0070f3; color:white; z-index:2;">
+          Stato
+        </th>
+        <th style="position:sticky; top:0; background:#0070f3; color:white; z-index:2;">
+          Comparto
+        </th>
+        <th style="position:sticky; top:0; background:#0070f3; color:white; z-index:2;">
+          Distretto
+        </th>
+      </tr>
+    </thead>
+
+    <tbody id="veicoliBody"></tbody>
+  </table>
+</div>
+
+
+<h2>📨 Richieste Mezzi</h2>
+
+<div style="max-height: 350px; overflow-y: auto; border:1px solid #ccc;">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead style="position: sticky; top: 0; background:#0070f3; color:white; z-index:1;">
+      <tr>
+        <th>Nome</th>
+        <th>Email</th>
+        <th>Data Missione</th>
+        <th>Identificativo</th>
+        <th>Distretto</th>
+        <th>Stato</th>
+        <th>Azione</th>
+        <th>PDF</th>
+      </tr>
+    </thead>
+    <tbody id="richiesteBody"></tbody>
+  </table>
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+<!-- LEAFLET -->
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<!-- EMAILJS -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
+  authDomain: "attendance-2980e.firebaseapp.com",
+  projectId: "attendance-2980e",
+});
+const db = firebase.firestore();
+
+// EmailJS init
+emailjs.init("0_vuI9zt_GvbEmGVp");
+
+/* ================= MAPPA ================= */
+const map = L.map("map").setView([38.1, 15.6], 12);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+const markersReport = L.markerClusterGroup();
+const markersRichieste = L.markerClusterGroup();
+map.addLayer(markersReport);
+map.addLayer(markersRichieste);
+
+/* ===== LEGENDA ===== */
+const legend = L.control({ position: "topright" });
+legend.onAdd = function () {
+  const div = L.DomUtil.create("div", "info legend");
+  div.style.background = "#fff";
+  div.style.padding = "10px";
+  div.style.borderRadius = "5px";
+  div.style.boxShadow = "0 0 5px rgba(0,0,0,0.3)";
+  div.innerHTML = `
+    <h4>Legenda</h4>
+    <i style="background-image:url('https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png')"></i> Report<br>
+    <i style="background-image:url('https://cdn-icons-png.flaticon.com/512/190/190411.png')"></i> Richiesta approvata
+  `;
+  return div;
+};
+legend.addTo(map);
+
+/* ================= PASSWORD ================= */
+const passwords = { ALL: "superpass123", 1: "distretto1pass", 2: "distretto2pass", 3: "distretto3pass", 4: "distretto4pass", 5: "distretto5pass",6:"distretto6pass",7:"distretto7pass",8:"distretto8pass",9:"distretto9pass",10:"distretto10pass",11:"distretto11pass",sede_centrale:"sedecentralepass123" };
+let accessGranted = false;
+let reportsMode = "recent";
+let reportsCache = [];
+
+function checkPassword() {
+  const user = distrettoSelector.value;
+  if (!user) return;
+  const pw = prompt("Inserisci la password");
+  if (pw !== passwords[user]) { alert("Password errata!"); accessGranted=false; clearAllTables(); return; }
+  accessGranted = true; reloadAll();
+}
+
+function distrettoAttivo() { return distrettoSelector.value==="ALL"?"ALL":Number(distrettoSelector.value); }
+
+/* ================= SEARCH ================= */
+function cercaReportsmezzi() {
+  const q = document
+    .getElementById("cercaReportsmezzi")
+    .value
+    .toUpperCase()
+    .trim();
+
+ const filtrati = reportsCache.filter(r =>
+  (
+    r.identificativo ||
+    r.tipoMezzo ||
+    r.sitoIntervento
+  )?.toUpperCase().includes(q)
+);
+
+
+  renderReportsmezzi(filtrati);
+}
+
+
+/* ================= REPORTS ================= */
+function loadReportsmezzi() {
+  if (!accessGranted) return;
+  db.collection("reportmezzi").onSnapshot(snap => {
+    reportsCache = snap.docs.map(d=>d.data());
+     renderReportsmezzi(reportsCache);
+  });
+}
+
+function renderReportsmezzi(list) {
+  reportsBody.innerHTML = "";
+  markersReport.clearLayers();
+  let totaleKm = 0;
+
+  const filtered = reportsMode === "recent" ? list.slice(-20) : list;
+
+  filtered.forEach(d => {
+    if (!d.distretto) return;
+
+    const active = distrettoAttivo();
+    const dNum = typeof d.distretto === "number" ? d.distretto : Number(d.distretto.replace("Distretto ", ""));
+    if (active !== "ALL" && dNum !== active) return;
+
+    const dataOra = d.createdAt ? d.createdAt.toDate().toLocaleString("it-IT") : "-";
+    if (d.kmGiornalieri) totaleKm += Number(d.kmGiornalieri);
+
+    reportsBody.innerHTML += `
+      <tr>
+        <td>${dataOra}</td>
+        <td>${d.distretto}</td>
+        <td>${d.sitoIntervento}</td>
+        <td>${d.tipoMezzo}</td>
+        <td>${d.identificativo}</td>
+        <td>
+          ${d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-"}
+        </td>
+        <td>
+          ${d.excel ? `<a href="${d.excel}" target="_blank">Excel</a>` : "-"}
+        </td>
+      </tr>
+    `;
+
+    if (d.latitudine && d.longitudine) {
+      const m = L.marker([d.latitudine, d.longitudine]);
+      m.bindPopup(`<b>${d.targa || d.identificativo}</b><br>${d.tipoMezzo}`);
+      markersReport.addLayer(m);
+    }
+  });
+
+  document.getElementById("totKm").innerText = `Totale KM: ${totaleKm}`;
+}
+
+
+/* ================= RICHIESTE ================= */
+let mezziLiberi = [];
+
+let richiesteListener; // variabile globale
+
+function loadRichiestemezzo() {
+  if(!accessGranted) return;
+  const body = document.getElementById("richiesteBody");
+  body.innerHTML = "";
+  markersRichieste.clearLayers();
+
+  // ✅ Se esiste già un listener, lo fermiamo
+  if(richiesteListener) richiesteListener();
+
+  richiesteListener = db.collection("richiestemezzi").onSnapshot(async snap => {
+    body.innerHTML = "";
+    const veicoliSnap = await db.collection("mezziMeccanici").get();
+    mezziLiberi = veicoliSnap.docs.map(vdoc => {
+      const v = vdoc.data();
+      return v.stato==="libero" ? { id: vdoc.id, ...v } : null;
+    }).filter(Boolean);
+
+    snap.forEach(doc => {
+      const r = doc.data();
+      if(typeof r.distretto !== "number") return;
+      const active = distrettoAttivo();
+      if(active !== "ALL" && r.distretto !== active) return;
+
+      let azioni = "";
+      if(r.status === "in attesa") {
+        const options = mezziLiberi
+          .filter(v => v.distretto === r.distretto)
+          .map(v => `<option value="${v.id}|${v.identificativo}|${v.modello}">${v.identificativo} – ${v.modello}</option>`)
+          .join("");
+
+        azioni = `
+          <select id="mezzo_${doc.id}">
+            <option value="">Seleziona mezzo</option>
+            ${options}
+          </select>
+          <button class="btn-approve" onclick="assegnaVeicolo('${doc.id}','${r.email}')">Assegna</button>
+          <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">NO</button>
+        `;
+      } else if(r.status === "approvata") {
+        azioni = `<button class="btn-approve" onclick="completaMissione('${doc.id}','${r.veicoloId}')">✅ Completa Missione</button>`;
+      }
+
+      const dataMissione = r.dataMissione ? r.dataMissione.toDate().toLocaleDateString("it-IT") : "-";
+
+      body.innerHTML += `
+        <tr>
+          <td>${r.nome}</td>
+          <td>${r.email}</td>
+          <td>${dataMissione}</td>
+          <td>${r.identificativo||r.tipoMezzo}</td>
+          <td>${r.distretto}</td>
+          <td>${r.status}</td>
+          <td>${azioni}</td>
+          <td>${r.pdf ? `<a href="${r.pdf}" target="_blank">PDF</a>` : "-"}</td>
+        </tr>
+      `;
+
+      if(r.status === "approvata" && r.latitudine && r.longitudine) {
+        const marker = L.marker([r.latitudine,r.longitudine],{
+          icon:L.icon({
+            iconUrl:'https://cdn-icons-png.flaticon.com/512/190/190411.png',
+            iconSize:[25,41],
+            iconAnchor:[12,41],
+            popupAnchor:[0,-41]
+          })
+        });
+        marker.bindPopup(`<b>Richiesta approvata</b><br>Veicolo: ${r.identificativo||r.tipoMezzo}<br>Distretto: ${r.distretto}<br>Utente: ${r.nome}`);
+        markersRichieste.addLayer(marker);
+      }
+    });
+  });
+}
+
+
+async function assegnaVeicolo(richiestaId, emailDestinatario){
+  const sel = document.getElementById(`mezzo_${richiestaId}`);
+  if(!sel || !sel.value) return alert("Seleziona un Mezzo");
+  const [veicoloId, targa, modello] = sel.value.split("|");
+
+  if(!navigator.geolocation) { alert("Geolocalizzazione non supportata"); return; }
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    try{
+      await db.collection('richiestemezzi').doc(richiestaId).update({
+        status:'approvata',
+        veicoloId,
+        veicoloTarga: targa,
+        veicoloModello: modello,
+        latitudine: pos.coords.latitude,
+        longitudine: pos.coords.longitude,
+        assegnatoAt: firebase.firestore.Timestamp.now()
+      });
+      await db.collection('mezziMeccanici').doc(veicoloId).update({ stato:'occupato' });
+      inviaMail(emailDestinatario, targa);
+      reloadAll();
+      alert("Veicolo assegnato correttamente");
+    } catch(err){
+      console.error(err);
+      alert("Errore assegnazione");
+    }
+  });
+}
+async function rifiutaRichiesta(richiestaId){
+  try{ await db.collection('richiestemezzi').doc(richiestaId).update({status:'rifiutata'}); reloadAll(); }
+  catch(err){ console.error(err); alert("Errore rifiuto richiesta"); }
+}
+
+async function completaMissione(richiestaId,veicoloId){
+  try{
+    await db.collection('mezziMeccanici').doc(veicoloId).update({stato:'libero'});
+    await db.collection('richiestemezzi').doc(richiestaId).update({status:'completata'});
+    reloadAll();
+    alert("Veicolo liberato e missione completata!");
+  } catch(err){ console.error(err); alert("Errore completamento missione"); }
+}
+
+async function inviaMail(emailDestinatario,veicoloTarga){
+  try{
+    const params={to_email:emailDestinatario,veicolo:veicoloTarga,from_name:"Dashboard Mezzi Meccanici"};
+    await emailjs.send("service_w1or5ah","template_e2exsif",params);
+    console.log("Email inviata a "+emailDestinatario);
+  }catch(err){console.error("Errore invio email:",err);}
+}
+
+/* ================= Mezzi Meccanici ================= */
+function loadMezzi() {
+  if (!accessGranted) return;
+
+  veicoliBody.innerHTML = "";
+
+  db.collection("mezziMeccanici").onSnapshot(snap => {
+    veicoliBody.innerHTML = "";
+
+    snap.forEach(doc => {
+      const v = doc.data();
+
+      if (typeof v.distretto !== "number") return;
+
+      const active = distrettoAttivo();
+      if (active !== "ALL" && v.distretto !== active) return;
+
+      veicoliBody.innerHTML += `
+        <tr>
+          <td>${v.identificativo}</td>
+          <td>${v.stato}</td>
+          <td>${v.comparto}</td>
+          <td>Distretto ${v.distretto}</td>
+        </tr>
+      `;
+    });
+  });
+}
+/* ================= load dislocazione mezzi ================= */
+function loadDislocazioneMezzi() {
+  if (!accessGranted) return;
+
+  const tbody = document.getElementById("dislocazioneBody");
+  tbody.innerHTML = "";
+
+  db.collection("richiestemezzi").onSnapshot(snap => {
+    tbody.innerHTML = "";
+
+    snap.forEach(doc => {
+      const r = doc.data();
+
+      // mostriamo SOLO approvate e completate
+      if (r.status !== "approvata" && r.status !== "completata") return;
+
+      const dataMissione = r.dataMissione ? r.dataMissione.toDate() : null;
+      const durata = r.durataPresunta || 1;
+      const fineMissione = dataMissione
+        ? new Date(dataMissione.getTime() + durata * 24 * 60 * 60 * 1000)
+        : null;
+
+      const oggi = new Date();
+
+      let stato = "";
+      let rowStyle = "";
+
+      // 🔒 SE COMPLETATA → CHIUSA
+      if (r.status === "completata") {
+        stato = "✅ Chiusa";
+        rowStyle = "background-color:#d4edda;color:#155724;";
+      }
+      // ⏳ SE ANCORA APPROVATA → calcolo scadenza
+      else if (fineMissione) {
+        const giorniRestanti = Math.ceil(
+          (fineMissione - oggi) / (1000 * 60 * 60 * 24)
+        );
+
+        if (giorniRestanti < 0) {
+          stato = "❌ Scaduta";
+          rowStyle = "background-color:#f8d7da;color:#721c24;";
+        } else if (giorniRestanti <= 1) {
+          stato = "⚠️ In scadenza";
+          rowStyle = "background-color:#fff3cd;color:#856404;";
+        } else {
+          stato = "✅ In corso";
+        }
+      }
+
+      tbody.innerHTML += `
+        <tr style="${rowStyle}">
+          <td>${dataMissione ? dataMissione.toLocaleDateString("it-IT") : "-"}</td>
+          <td>${r.veicoloModello || r.tipoMezzo}</td>
+          <td>${r.identificativo || r.veicoloTarga}</td>
+          <td>${r.sitoIntervento || "-"}</td>
+          <td>${durata}</td>
+          <td>${stato}</td>
+        </tr>
+      `;
+    });
+  });
+}
+
+
+
+
+function reloadAll(){  loadReportsmezzi();   loadMezzi(); loadRichiestemezzo(); loadDislocazioneMezzi();  }
+function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
+
+clearAllTables();
+</script>
+
+</body>
+</html>

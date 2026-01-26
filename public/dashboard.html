@@ -79,6 +79,8 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <tbody id="reportsBody"></tbody>
 </table>
 
+
+
 <h2>🚗 Veicoli</h2>
 <table>
 <thead>
@@ -100,6 +102,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>Nome</th>
   <th>Email</th>
   <th>Data Missione</th>
+  <th>missione</th>
   <th>Veicolo</th>
   <th>Distretto</th>
   <th>Stato</th>
@@ -225,72 +228,103 @@ function renderReports(list) {
 
 /* ================= RICHIESTE ================= */
 let veicoliLiberi=[];
+ let richiesteAutoListener;
+
 
 function loadRichieste() {
-  if(!accessGranted) return;
+  if (!accessGranted) return;
+
   const body = document.getElementById("richiesteBody");
-  body.innerHTML="";
+  body.innerHTML = "";
   markersRichieste.clearLayers();
 
-  db.collection("richieste").onSnapshot(snap=>{
-    body.innerHTML="";
-    db.collection("veicoli").get().then(veicoliSnap=>{
-      veicoliLiberi=[];
-      veicoliSnap.forEach(vdoc=>{
-        const v = vdoc.data(); 
-        if(v.stato==="libero") veicoliLiberi.push({id:vdoc.id,...v});
-      });
+  // ✅ chiude listener precedente (ANTI DUPLICATI)
+  if (richiesteAutoListener) richiesteAutoListener();
 
-      snap.forEach(doc=>{
-        const r=doc.data();
-        if(typeof r.distretto!=="number") return;
-        if(distrettoAttivo()!=="ALL" && r.distretto!==distrettoAttivo()) return;
+  richiesteAutoListener = db.collection("richieste").onSnapshot(async snap => {
+    body.innerHTML = "";
+    markersRichieste.clearLayers();
 
-        let azioni="";
-        if(r.status==="in attesa"){
-          const options=veicoliLiberi
-            .filter(v=>v.distretto===r.distretto)
-            .map(v=>`<option value="${v.id}|${v.targa}|${v.modello}">${v.modello} – ${v.targa}</option>`).join("");
-          azioni=`
-            <select id="veicolo_${doc.id}">
-              <option value="">Seleziona veicolo</option>
-              ${options}
-            </select>
-            <button class="btn-approve" onclick="assegnaVeicolo('${doc.id}','${r.email}')">Assegna</button>
-            <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">NO</button>
-          `;
-        } else if(r.status==="approvata"){
-          azioni=`<button class="btn-approve" onclick="completaMissione('${doc.id}','${r.veicoloId}')">✅ Completa Missione</button>`;
-        }
-        const dataMissione = r.dataMissione
-  ? r.dataMissione.toDate().toLocaleDateString("it-IT")
-  : "-";
+    // carica veicoli UNA VOLTA
+    const veicoliSnap = await db.collection("veicoli").get();
+    const veicoliLiberi = veicoliSnap.docs
+      .map(vdoc => {
+        const v = vdoc.data();
+        return v.stato === "libero" ? { id: vdoc.id, ...v } : null;
+      })
+      .filter(Boolean);
 
+    snap.forEach(doc => {
+      const r = doc.data();
 
-       body.innerHTML+=`
-  <tr>
-    <td>${r.nome}</td>
-    <td>${r.email}</td>
-    <td>${dataMissione}</td>
-    <td>${r.veicoloTarga||r.veicolo}</td>
-    <td>${r.distretto}</td>
-    <td>${r.status}</td>
-    <td>${azioni}</td>
-  </tr>
-`;
+      if (typeof r.distretto !== "number") return;
+      if (distrettoAttivo() !== "ALL" && r.distretto !== distrettoAttivo()) return;
 
+      let azioni = "";
 
-        if(r.status==="approvata" && r.latitudine && r.longitudine){
-          const marker=L.marker([r.latitudine,r.longitudine],{icon:L.icon({
-            iconUrl:'https://cdn-icons-png.flaticon.com/512/190/190411.png',
-            iconSize:[25,41],
-            iconAnchor:[12,41],
-            popupAnchor:[0,-41]
-          })});
-          marker.bindPopup(`<b>Richiesta approvata</b><br>Veicolo: ${r.veicoloTarga||r.veicolo}<br>Distretto: ${r.distretto}<br>Utente: ${r.nome}`);
-          markersRichieste.addLayer(marker);
-        }
-      });
+      if (r.status === "in attesa") {
+        const options = veicoliLiberi
+          .filter(v => v.distretto === r.distretto)
+          .map(v =>
+            `<option value="${v.id}|${v.targa}|${v.modello}">
+              ${v.modello} – ${v.targa}
+            </option>`
+          )
+          .join("");
+
+        azioni = `
+          <select id="veicolo_${doc.id}">
+            <option value="">Seleziona veicolo</option>
+            ${options}
+          </select>
+          <button class="btn-approve" onclick="assegnaVeicolo('${doc.id}','${r.email}')">Assegna</button>
+          <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">NO</button>
+        `;
+      } 
+      else if (r.status === "approvata") {
+        azioni = `
+          <button class="btn-approve"
+            onclick="completaMissione('${doc.id}','${r.veicoloId}')">
+            ✅ Completa Missione
+          </button>`;
+      }
+
+      const dataMissione = r.dataMissione
+        ? r.dataMissione.toDate().toLocaleDateString("it-IT")
+        : "-";
+
+      body.innerHTML += `
+        <tr>
+          <td>${r.nome}</td>
+          <td>${r.email}</td>
+          <td>${dataMissione}</td>
+          <td>${r.missione}</td>
+          <td>${r.veicoloTarga || r.veicolo}</td>
+          <td>${r.distretto}</td>
+          <td>${r.status}</td>
+          <td>${azioni}</td>
+        </tr>
+      `;
+
+      if (r.status === "approvata" && r.latitudine && r.longitudine) {
+        const marker = L.marker([r.latitudine, r.longitudine], {
+          icon: L.icon({
+            iconUrl: "https://cdn-icons-png.flaticon.com/512/190/190411.png",
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [0, -41]
+          })
+        });
+
+        marker.bindPopup(`
+          <b>Richiesta approvata</b><br>
+          Veicolo: ${r.veicoloTarga || r.veicolo}<br>
+          Distretto: ${r.distretto}<br>
+          Utente: ${r.nome}
+        `);
+
+        markersRichieste.addLayer(marker);
+      }
     });
   });
 }

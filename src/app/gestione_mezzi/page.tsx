@@ -26,23 +26,20 @@ export default function Home() {
       />
 
       <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: 700 ,color:"green"}}>
-        GESTIONE AUTOPARCO<br />AZIENDA CALABRIA VERDE<br/>   VEICOLI
+        GESTIONE AUTOPARCO<br />AZIENDA CALABRIA VERDE<br/> MEZZI PESANTI
       </h1>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        <Link href="/sorveglianza">
-          <button style={btn}>🚓REPORT SORVEGLIANZA</button>
+       
+        <Link href="/richiesta-mezzo_meccanico">
+          <button style={btn}>🚜 RICHIESTA MEZZO</button>
         </Link>
 
-        <Link href="/forestazione/richiedi">
-          <button style={btn}>🌲 FORESTAZIONE</button>
+         <Link href="/sede_centrale/libera_-mezzo">
+          <button style={btn}>🚜 INVIA REPORT</button>
         </Link>
 
-         <Link href="/gestione_mezzi">
-          <button style={btn}>🚜 RICHIESTA MEZZI PESANTI</button>
-        </Link>
-
-        <a href="/dashboard.html" target="_blank" rel="noopener noreferrer">
+        <a href="/dashboard1.html" target="_blank" rel="noopener noreferrer">
           <button style={btn}>📊 DASHBOARD1</button>
         </a>
       </div>
