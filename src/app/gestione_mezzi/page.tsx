@@ -26,7 +26,7 @@ export default function Home() {
       />
 
       <h1 style={{ marginBottom: "2rem", fontSize: "2rem", fontWeight: 700 ,color:"green"}}>
-        GESTIONE AUTOPARCO<br />AZIENDA CALABRIA VERDE<br/> MEZZI PESANTI
+        GESTIONE AUTOPARCO<br />AZIENDA CALABRIA VERDE<br/> MEZZI MECCANICI
       </h1>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>

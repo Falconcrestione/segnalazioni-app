@@ -39,7 +39,7 @@ export default function Home() {
         </Link>
 
          <Link href="/gestione_mezzi">
-          <button style={btn}>🚜 RICHIESTA MEZZI PESANTI</button>
+          <button style={btn}>🚜 RICHIESTA MEZZI MECCANICI</button>
         </Link>
 
         <a href="/dashboard.html" target="_blank" rel="noopener noreferrer">
