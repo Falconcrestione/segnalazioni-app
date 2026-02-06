@@ -125,17 +125,15 @@ export default function Sorveglianza() {
         {/* DOCUMENTI */}
         <div className="space-y-3">
           <h3 className="font-semibold text-gray-700">📄 Documentazione</h3>
-<a
-  href="/report_auto_fillable.pdf"
-  target="_blank"
-  rel="noopener noreferrer"
-  download
->
-  <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition">
-    ✏️ Compila PDF
-  </button>
-</a>
-
+ <a
+            href="/report_auto_fillable.pdf"
+            target="_blank"
+            className="block"
+          >
+            <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition">
+              ✏️ Compila PDF
+            </button>
+          </a>
 
 
 
