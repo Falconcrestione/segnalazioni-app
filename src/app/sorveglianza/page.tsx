@@ -14,6 +14,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { DISTRETTI } from "../lib/distretti";
 import React from "react";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 export default function Sorveglianza() {
   const [distretto, setDistretto] = useState("");
@@ -24,11 +25,29 @@ export default function Sorveglianza() {
   const [kmPartenza, setKmPartenza] = useState("");
   const [kmArrivo, setKmArrivo] = useState("");
 
-  const [compiledPdf, setCompiledPdf] = useState<File | null>(null);
   const [jpgFile, setJpgFile] = useState<File | null>(null);
 
   const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // --- Modal e dati PDF ---
+  const [showPdfForm, setShowPdfForm] = useState(false);
+  const [pdfFormData, setPdfFormData] = useState({
+    veicolo: "",
+    targa: "",
+    data: "",
+    oraPartenza: "",
+    oraArrivo: "",
+    conducente: "",
+    percorso: "",
+    kmPartenza: "",
+    kmArrivo: "",
+    buono: "",
+    benzina: "",
+    gasolio: "",
+    manutenzione: "",
+    lavaggi: "",
+  });
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -41,11 +60,44 @@ export default function Sorveglianza() {
     );
   }, []);
 
+  const handlePdfFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPdfFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // --- Genera PDF lato client ---
+  const generatePdf = async (): Promise<File> => {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595, 842]); // A4
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const { veicolo, targa, data, oraPartenza, oraArrivo, conducente,
+      percorso, kmPartenza, kmArrivo, buono, benzina, gasolio, manutenzione, lavaggi } = pdfFormData;
+
+    page.drawText(`Veicolo: ${veicolo}`, { x: 50, y: 800, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Targa: ${targa}`, { x: 50, y: 780, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Data: ${data}`, { x: 50, y: 760, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Ora Partenza: ${oraPartenza}`, { x: 50, y: 740, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Ora Arrivo: ${oraArrivo}`, { x: 50, y: 720, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Conducente: ${conducente}`, { x: 50, y: 700, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Percorso: ${percorso}`, { x: 50, y: 680, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`KM Partenza: ${kmPartenza}`, { x: 50, y: 660, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`KM Arrivo: ${kmArrivo}`, { x: 50, y: 640, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Buono n°: ${buono}`, { x: 50, y: 620, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Benzina L: ${benzina}`, { x: 50, y: 600, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Gasolio L: ${gasolio}`, { x: 50, y: 580, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Manutenzione: ${manutenzione}`, { x: 50, y: 560, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Lavaggi: ${lavaggi}`, { x: 50, y: 540, size: 12, font, color: rgb(0, 0, 0) });
+
+    // --- FIX TypeScript: creo un Uint8Array nuovo compatibile ---
+    const pdfBytes = await pdfDoc.save();
+    const pdfFile = new File([new Uint8Array(pdfBytes)], `report_${targa}_${Date.now()}.pdf`, { type: "application/pdf" });
+    return pdfFile;
+  };
+
   const handleSend = async () => {
     if (!distretto) return alert("Seleziona il distretto");
     if (!comparto || !tipoVeicolo || !targa) return alert("Compila tutti i campi");
-    if (!kmPartenza || !kmArrivo) return alert("Inserisci KM partenza e arrivo");
-    if (!compiledPdf) return alert("Carica il PDF");
     if (!latLng) return alert("Posizione non disponibile");
 
     const kmGiornalieri = Number(kmArrivo) - Number(kmPartenza);
@@ -54,11 +106,14 @@ export default function Sorveglianza() {
     setLoading(true);
 
     try {
+      // Genero PDF lato client
+      const pdfFile = await generatePdf();
+
       const pdfRef = ref(
         storage,
         `reports/sorveglianza/distretto_${distretto}/${Date.now()}_${targa}.pdf`
       );
-      await uploadBytes(pdfRef, compiledPdf);
+      await uploadBytes(pdfRef, pdfFile);
       const pdfUrl = await getDownloadURL(pdfRef);
 
       let jpgUrl: string | null = null;
@@ -99,14 +154,31 @@ export default function Sorveglianza() {
 
       alert("Report inviato e veicolo liberato");
 
+      // Reset stati
       setDistretto("");
       setComparto("");
       setTipoVeicolo("");
       setTarga("");
       setKmPartenza("");
       setKmArrivo("");
-      setCompiledPdf(null);
       setJpgFile(null);
+      setPdfFormData({
+        veicolo: "",
+        targa: "",
+        data: "",
+        oraPartenza: "",
+        oraArrivo: "",
+        conducente: "",
+        percorso: "",
+        kmPartenza: "",
+        kmArrivo: "",
+        buono: "",
+        benzina: "",
+        gasolio: "",
+        manutenzione: "",
+        lavaggi: "",
+      });
+
     } catch (err) {
       console.error(err);
       alert("Errore durante l'invio");
@@ -125,44 +197,49 @@ export default function Sorveglianza() {
         {/* DOCUMENTI */}
         <div className="space-y-3">
           <h3 className="font-semibold text-gray-700">📄 Documentazione</h3>
-<a href="/report_auto_fillable.pdf" download className="block">
-  <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition">
-    ✏️ Compila PDF
-  </button>
-</a>
-
-          <div className="text-sm text-gray-600 text-center space-y-1">
-  <p>⚠️ Su tablet Android il PDF è compilabile</p>
-  <p>
-    solo se aperto con <strong>Adobe Acrobat Reader</strong>
-  </p>
-  <a
-    href="https://play.google.com/store/apps/details?id=com.adobe.reader"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-blue-600 underline"
-  >
-    Installa Adobe Acrobat Reader
-  </a>
-</div>
-
-
-
-
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={e => setCompiledPdf(e.target.files?.[0] || null)}
-            className="file-input"
-          />
-
-          <input
-            type="file"
-            accept="image/*"
-            onChange={e => setJpgFile(e.target.files?.[0] || null)}
-            className="file-input"
-          />
+          <button
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition"
+            onClick={() => setShowPdfForm(true)}
+          >
+            ✏️ Compila PDF
+          </button>
         </div>
+
+        {/* MODAL PDF FORM */}
+        {showPdfForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-xl space-y-3 overflow-auto max-h-[90vh]">
+              <h3 className="text-lg font-bold text-center">Compila Report</h3>
+
+              {Object.entries(pdfFormData).map(([key, value]) => (
+                <input
+                  key={key}
+                  name={key}
+                  value={value}
+                  onChange={handlePdfFormChange}
+                  placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+                  className="input w-full"
+                  type={key.includes("km") || key === "benzina" || key === "gasolio" ? "number" : "text"}
+                />
+              ))}
+
+              <div className="flex justify-between mt-4">
+                <button
+                  className="bg-gray-400 text-white py-2 px-4 rounded"
+                  onClick={() => setShowPdfForm(false)}
+                >
+                  ❌ Annulla
+                </button>
+                <button
+                  className="bg-green-600 text-white py-2 px-4 rounded"
+                  onClick={() => setShowPdfForm(false)}
+                >
+                  💾 Salva
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* DATI VEICOLO */}
         <div className="space-y-3">
@@ -189,6 +266,13 @@ export default function Sorveglianza() {
             <input className="input" type="number" placeholder="KM Partenza" value={kmPartenza} onChange={e => setKmPartenza(e.target.value)} />
             <input className="input" type="number" placeholder="KM Arrivo" value={kmArrivo} onChange={e => setKmArrivo(e.target.value)} />
           </div>
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={e => setJpgFile(e.target.files?.[0] || null)}
+            className="file-input"
+          />
         </div>
 
         <button
