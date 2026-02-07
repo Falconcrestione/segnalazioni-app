@@ -125,15 +125,27 @@ export default function Sorveglianza() {
         {/* DOCUMENTI */}
         <div className="space-y-3">
           <h3 className="font-semibold text-gray-700">📄 Documentazione</h3>
- <a
-            href="/report_auto_fillable.pdf"
-            target="_blank"
-            className="block"
-          >
-            <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition">
-              ✏️ Compila PDF
-            </button>
-          </a>
+<a href="/report_auto_fillable.pdf" download className="block">
+  <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition">
+    ✏️ Compila PDF
+  </button>
+</a>
+
+          <div className="text-sm text-gray-600 text-center space-y-1">
+  <p>⚠️ Su tablet Android il PDF è compilabile</p>
+  <p>
+    solo se aperto con <strong>Adobe Acrobat Reader</strong>
+  </p>
+  <a
+    href="https://play.google.com/store/apps/details?id=com.adobe.reader"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-blue-600 underline"
+  >
+    Installa Adobe Acrobat Reader
+  </a>
+</div>
+
 
 
 
