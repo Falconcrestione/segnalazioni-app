@@ -33,6 +33,12 @@ export default function LiberaMezzo() {
   const [richiesta, setRichiesta] = useState<Richiesta | null>(null);
   const [excelFile, setExcelFile] = useState<File | null>(null);
 
+  // Nuovi campi
+  const [gasolioLitri, setGasolioLitri] = useState<number | "">("");
+  const [superficieMq, setSuperficieMq] = useState<number | "">("");
+  const [operatore, setOperatore] = useState<string>("");
+  const [note, setNote] = useState<string>("");
+
   useEffect(() => {
     if (!richiestaId) return;
     const loadRichiesta = async () => {
@@ -61,7 +67,11 @@ export default function LiberaMezzo() {
         tipoMezzo: richiesta.tipoMezzo,
         identificativo: richiesta.identificativo,
         pdf: richiesta.pdf || "",
-        excel: excelUrl
+        excel: excelUrl,
+        gasolioLitri: gasolioLitri || 0,
+        superficieMq: superficieMq || 0,
+        operatore: operatore || "",
+        note: note || ""
       });
 
       if (richiesta.veicoloId) {
@@ -78,6 +88,10 @@ export default function LiberaMezzo() {
       setExcelFile(null);
       setRichiesta(null);
       setRichiestaId("");
+      setGasolioLitri("");
+      setSuperficieMq("");
+      setOperatore("");
+      setNote("");
     } catch (err) {
       console.error(err);
       alert("❌ Errore invio report");
@@ -101,6 +115,14 @@ export default function LiberaMezzo() {
             <Field label="Sito intervento" value={richiesta.sitoIntervento} />
             <Field label="Tipo mezzo" value={richiesta.tipoMezzo} />
             <Field label="Identificativo mezzo" value={richiesta.identificativo} />
+          </div>
+
+          {/* Nuovi campi editabili */}
+          <div className="grid grid-cols-1 gap-4 mt-4">
+            <Field label="Gasolio (litri)" value={gasolioLitri} setValue={setGasolioLitri} type="number" />
+            <Field label="Superficie lavoro (m²)" value={superficieMq} setValue={setSuperficieMq} type="number" />
+            <Field label="Operatore" value={operatore} setValue={setOperatore} />
+            <Field label="Note" value={note} setValue={setNote} />
           </div>
 
           {richiesta.pdf && (
@@ -147,13 +169,25 @@ export default function LiberaMezzo() {
 }
 
 // Componente di supporto
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+  setValue,
+  type = "text"
+}: {
+  label: string;
+  value: any;
+  setValue?: (val: any) => void;
+  type?: string;
+}) {
   return (
     <div className="flex flex-col">
       <span className="text-sm font-medium text-gray-600">{label}</span>
       <input
-        readOnly
+        type={type}
         value={value}
+        onChange={setValue ? (e) => setValue(type === "number" ? Number(e.target.value) : e.target.value) : undefined}
+        readOnly={!setValue}
         className="mt-1 p-2 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none"
       />
     </div>

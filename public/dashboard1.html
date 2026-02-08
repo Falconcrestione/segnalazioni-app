@@ -74,6 +74,11 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>Tipo Mezzo</th>
   <th>Identificativo</th>
   <th>PDF</th>
+  <th>Excel</th>
+  <th>Gasolio (L)</th>
+  <th>Superficie (m²)</th>
+  <th>Operatore</th>
+  <th>Note</th>
   
 </tr>
 </thead>
@@ -259,21 +264,22 @@ function renderReportsmezzi(list) {
     const dataOra = d.createdAt ? d.createdAt.toDate().toLocaleString("it-IT") : "-";
     if (d.kmGiornalieri) totaleKm += Number(d.kmGiornalieri);
 
-    reportsBody.innerHTML += `
-      <tr>
-        <td>${dataOra}</td>
-        <td>${d.distretto}</td>
-        <td>${d.sitoIntervento}</td>
-        <td>${d.tipoMezzo}</td>
-        <td>${d.identificativo}</td>
-        <td>
-          ${d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-"}
-        </td>
-        <td>
-          ${d.excel ? `<a href="${d.excel}" target="_blank">Excel</a>` : "-"}
-        </td>
-      </tr>
-    `;
+   reportsBody.innerHTML += `
+  <tr>
+    <td>${dataOra}</td>
+    <td>${d.distretto}</td>
+    <td>${d.sitoIntervento}</td>
+    <td>${d.tipoMezzo}</td>
+    <td>${d.identificativo}</td>
+    <td>${d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-"}</td>
+    <td>${d.excel ? `<a href="${d.excel}" target="_blank">Excel</a>` : "-"}</td>
+    <td>${d.gasolioLitri || 0}</td>
+    <td>${d.superficieMq || 0}</td>
+    <td>${d.operatore || "-"}</td>
+    <td>${d.note || "-"}</td>
+  </tr>
+`;
+
 
     if (d.latitudine && d.longitudine) {
       const m = L.marker([d.latitudine, d.longitudine]);
