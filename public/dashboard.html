@@ -23,6 +23,23 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 .btn-reject { background:#dc3545; color:#fff; }
 .info.legend { font-size:14px; line-height:18px; color:#333; }
 .info.legend i { width:25px; height:41px; float:left; margin-right:8px; background-size:contain; background-repeat:no-repeat; }
+.table-container {
+  height: 400px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.table-container th {
+  position: sticky;
+  top: 0;
+  background: #0070f3;
+  color: white;
+  z-index: 10;
+}
+
 </style>
 </head>
 
@@ -50,6 +67,10 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   </select>
 
   <input type="text" id="searchTarga" placeholder="Cerca per targa" oninput="cercaTarga()" />
+  <input type="date" id="searchFromDate" onchange="cercaPerData()" />
+<input type="date" id="searchToDate" onchange="cercaPerData()" />
+<button onclick="resetFiltroData()">Reset</button>
+
 </div>
 
 <div id="map"></div>
@@ -62,7 +83,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 </div>
 
 <h3 id="totKm">Totale KM: 0</h3>
-
+<div class="table-container">
 <table>
 <thead>
 <tr>
@@ -78,10 +99,11 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 </thead>
 <tbody id="reportsBody"></tbody>
 </table>
-
+</div>
 
 
 <h2>🚗 Veicoli</h2>
+<div class="table-container">
 <table>
 <thead>
 <tr>
@@ -94,8 +116,10 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 </thead>
 <tbody id="veicoliBody"></tbody>
 </table>
+</div>
 
 <h2>📨 Richieste Veicoli</h2>
+<div class="table-container">
 <table>
 <thead>
 <tr>
@@ -112,6 +136,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 </thead>
 <tbody id="richiesteBody"></tbody>
 </table>
+</div>
 
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -178,11 +203,67 @@ function checkPassword() {
 
 function distrettoAttivo() { return distrettoSelector.value==="ALL"?"ALL":Number(distrettoSelector.value); }
 
-/* ================= SEARCH ================= */
+/* ================= SEARCH TARGA================= */
 function cercaTarga() {
   const q = searchTarga.value.toUpperCase();
-  renderReports(reportsCache.filter(r => r.targa && r.targa.toUpperCase().includes(q)));
+
+  let filtered = reportsCache.filter(r =>
+    r.targa && r.targa.toUpperCase().includes(q)
+  );
+
+  const from = searchFromDate.value;
+  const to = searchToDate.value;
+
+  if (from) {
+    const fromDate = new Date(from);
+    filtered = filtered.filter(r =>
+      r.createdAt && r.createdAt.toDate() >= fromDate
+    );
+  }
+
+  if (to) {
+    const toDate = new Date(to);
+    toDate.setHours(23,59,59,999);
+    filtered = filtered.filter(r =>
+      r.createdAt && r.createdAt.toDate() <= toDate
+    );
+  }
+
+  renderReports(filtered);
 }
+
+/* ================= SEARCH DATA================= */
+function cercaPerData() {
+  const from = document.getElementById("searchFromDate").value;
+  const to = document.getElementById("searchToDate").value;
+
+  let filtered = reportsCache;
+
+  if (from) {
+    const fromDate = new Date(from);
+    filtered = filtered.filter(r =>
+      r.createdAt && r.createdAt.toDate() >= fromDate
+    );
+  }
+
+  if (to) {
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999); // include tutta la giornata
+    filtered = filtered.filter(r =>
+      r.createdAt && r.createdAt.toDate() <= toDate
+    );
+  }
+
+  renderReports(filtered);
+}
+/* ================= RESET DATA================= */
+function resetFiltroData() {
+  document.getElementById("searchFromDate").value = "";
+  document.getElementById("searchToDate").value = "";
+  renderReports(reportsCache);
+}
+
+
 
 /* ================= REPORTS ================= */
 function loadReports() {

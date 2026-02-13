@@ -24,3 +24,28 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* ===== SCROLL TABELLE ===== */
+
+.table-container {
+  height: 400px;
+  overflow: auto;
+  position: relative;
+  border: 1px solid #ddd;
+}
+
+/* forza il comportamento corretto */
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* sticky header corretto */
+.table-container th {
+  position: sticky;
+  top: 0;
+  background: #0070f3;
+  color: white;
+  z-index: 5;
+}
