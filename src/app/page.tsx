@@ -35,7 +35,7 @@ export default function Home() {
         </Link>
 
         <Link href="/forestazione/richiedi">
-          <button style={btn}>🌲 FORESTAZIONE</button>
+          <button style={btn}>🌲 SETTORI VARI</button>
         </Link>
 
          <Link href="/gestione_mezzi">

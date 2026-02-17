@@ -95,6 +95,8 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>KM Giornalieri</th>
   <th>PDF</th>
   <th>Foto</th>
+  <th>Azione</th>
+
 </tr>
 </thead>
 <tbody id="reportsBody"></tbody>
@@ -269,7 +271,8 @@ function resetFiltroData() {
 function loadReports() {
   if (!accessGranted) return;
   db.collection("reports").onSnapshot(snap => {
-    reportsCache = snap.docs.map(d=>d.data());
+   reportsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
     renderReports(reportsCache);
   });
 }
@@ -286,18 +289,24 @@ function renderReports(list) {
     if(active!=="ALL" && dNum!==active) return;
     const dataOra = d.createdAt?d.createdAt.toDate().toLocaleString("it-IT"):"-";
     if(d.kmGiornalieri) totaleKm+=Number(d.kmGiornalieri);
-    reportsBody.innerHTML+=`
-      <tr>
-        <td>${dataOra}</td>
-        <td>${d.distretto}</td>
-        <td>${d.comparto}</td>
-        <td>${d.tipoVeicolo}</td>
-        <td>${d.targa}</td>
-        <td>${d.kmGiornalieri??"-"}</td>
-        <td>${d.pdf?`<a href="${d.pdf}" target="_blank">PDF</a>`:"-"}</td>
-        <td>${d.jpg?`<a href="${d.jpg}" target="_blank">Foto</a>`:"-"}</td>
-      </tr>
-    `;
+  reportsBody.innerHTML+=`
+  <tr>
+    <td>${dataOra}</td>
+    <td>${d.distretto}</td>
+    <td>${d.comparto}</td>
+    <td>${d.tipoVeicolo}</td>
+    <td>${d.targa}</td>
+    <td>${d.kmGiornalieri??"-"}</td>
+    <td>${d.pdf?`<a href="${d.pdf}" target="_blank">PDF</a>`:"-"}</td>
+    <td>${d.jpg?`<a href="${d.jpg}" target="_blank">Foto</a>`:"-"}</td>
+    <td>
+      <button class="btn-reject" onclick="eliminaReport('${d.id}')">
+        🗑 Elimina
+      </button>
+    </td>
+  </tr>
+`;
+
     if(d.latitudine && d.longitudine){
       const m=L.marker([d.latitudine,d.longitudine]);
       m.bindPopup(`<b>${d.targa}</b><br>${d.tipoVeicolo}`);
@@ -374,18 +383,26 @@ function loadRichieste() {
         ? r.dataMissione.toDate().toLocaleDateString("it-IT")
         : "-";
 
-      body.innerHTML += `
-        <tr>
-          <td>${r.nome}</td>
-          <td>${r.email}</td>
-          <td>${dataMissione}</td>
-          <td>${r.missione}</td>
-          <td>${r.veicoloTarga || r.veicolo}</td>
-          <td>${r.distretto}</td>
-          <td>${r.status}</td>
-          <td>${azioni}</td>
-        </tr>
-      `;
+     body.innerHTML += `
+  <tr>
+    <td>${r.nome}</td>
+    <td>${r.email}</td>
+    <td>${dataMissione}</td>
+    <td>${r.missione}</td>
+    <td>${r.veicoloTarga || r.veicolo}</td>
+    <td>${r.distretto}</td>
+    <td>${r.status}</td>
+    <td>
+      ${azioni}
+      <br>
+      <button class="btn-reject"
+        onclick="eliminaRichiesta('${doc.id}','${r.veicoloId || ""}')">
+        🗑 Elimina
+      </button>
+    </td>
+  </tr>
+`;
+
 
       if (r.status === "approvata" && r.latitudine && r.longitudine) {
         const marker = L.marker([r.latitudine, r.longitudine], {
@@ -478,6 +495,37 @@ function loadVeicoli(){
       `;
     });
   });
+}
+async function eliminaReport(reportId){
+  if(!confirm("Sei sicuro di voler eliminare questo report?")) return;
+
+  try{
+    await db.collection("reports").doc(reportId).delete();
+    alert("Report eliminato correttamente");
+  } catch(err){
+    console.error(err);
+    alert("Errore eliminazione report");
+  }
+}
+async function eliminaRichiesta(richiestaId, veicoloId){
+  if(!confirm("Sei sicuro di voler eliminare questa richiesta?")) return;
+
+  try{
+    // Se la richiesta era approvata, libero il veicolo
+    if(veicoloId){
+      await db.collection("veicoli").doc(veicoloId).update({
+        stato: "libero"
+      });
+    }
+
+    await db.collection("richieste").doc(richiestaId).delete();
+
+    alert("Richiesta eliminata correttamente");
+
+  } catch(err){
+    console.error(err);
+    alert("Errore eliminazione richiesta");
+  }
 }
 
 
