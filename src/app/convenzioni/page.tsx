@@ -1,6 +1,13 @@
+import Link from "next/link";
+
 export default function ConvenzioniPage() {
+    
   return (
+    
     <div style={{ padding: "40px", fontFamily: "Arial, sans-serif" }}>
+         <Link href="/">
+          <button style={btn}>🚜 TORNA A HOME</button>
+        </Link>
       <h1>Elenco Convenzionati</h1>
 
       {/* MANUTENZIONE */}
@@ -116,3 +123,13 @@ export default function ConvenzioniPage() {
     </div>
   );
 }
+const btn = {
+  padding: "1rem 2rem",
+  backgroundColor: "#0070f3",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  fontSize: "1.1rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};

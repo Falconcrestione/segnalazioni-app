@@ -46,7 +46,7 @@ export default function Home() {
           <button style={btn}>📊 DASHBOARD1</button>
         </a>
          <a href="/convenzioni" target="_blank" rel="noopener noreferrer">
-          <button style={btn}>📊 COMNENZNI</button>
+          <button style={btn}>📊 LISTA OFFICINE CONVENZIONATE</button>
         </a>
       </div>
     </div>
