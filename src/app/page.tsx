@@ -45,6 +45,9 @@ export default function Home() {
         <a href="/dashboard.html" target="_blank" rel="noopener noreferrer">
           <button style={btn}>📊 DASHBOARD1</button>
         </a>
+         <a href="/convenzioni" target="_blank" rel="noopener noreferrer">
+          <button style={btn}>📊 COMNENZNI</button>
+        </a>
       </div>
     </div>
   );
