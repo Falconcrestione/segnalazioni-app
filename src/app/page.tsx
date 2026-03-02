@@ -3,9 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function Home() {
   const router = useRouter();
+  const [openDistretti, setOpenDistretti] = useState(false);
 
   function goToTracking() {
     const password = prompt("Inserisci password Tracking");
@@ -37,19 +39,22 @@ export default function Home() {
         style={{ marginBottom: "2rem" }}
       />
 
-      <h1 style={{
-        marginBottom: "2rem",
-        fontSize: "2rem",
-        fontWeight: 700,
-        color:"green"
-      }}>
+      <h1
+        style={{
+          marginBottom: "2rem",
+          fontSize: "2rem",
+          fontWeight: 700,
+          color: "green",
+          textAlign: "center",
+        }}
+      >
         GESTIONE AUTOPARCO<br />
         AZIENDA CALABRIA VERDE<br />
         VEICOLI
       </h1>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-
+        
         <Link href="/sorveglianza">
           <button style={btn}>🚓 REPORT SORVEGLIANZA</button>
         </Link>
@@ -70,10 +75,29 @@ export default function Home() {
           <button style={btn}>📊 DASHBOARD1</button>
         </a>
 
-        <a href="/convenzioni" target="_blank" rel="noopener noreferrer">
-          <button style={btn}>📊 LISTA OFFICINE CONVENZIONATE</button>
-        </a>
+       
 
+        {/* NUOVO BOTTONE DISTRETTI */}
+        <button
+          style={btn}
+          onClick={() => setOpenDistretti(!openDistretti)}
+        >
+          🗂️ LISTA OFFICINE CONVENZIONATE
+        </button>
+
+        {openDistretti && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+            {[...Array(11)].map((_, i) => (
+              <button
+                key={i}
+                style={distrettoBtn}
+                onClick={() => router.push(`/distretti/${i + 1}`)}
+              >
+                Distretto {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -88,4 +112,14 @@ const btn = {
   fontSize: "1.1rem",
   fontWeight: 700,
   cursor: "pointer",
+  minWidth: "280px",
+};
+
+const distrettoBtn = {
+  padding: "0.7rem 1.5rem",
+  backgroundColor: "#ffffff",
+  border: "1px solid #ccc",
+  borderRadius: "6px",
+  cursor: "pointer",
+  minWidth: "280px",
 };

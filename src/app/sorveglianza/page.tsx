@@ -24,6 +24,8 @@ export default function Sorveglianza() {
 
   const [kmPartenza, setKmPartenza] = useState("");
   const [kmArrivo, setKmArrivo] = useState("");
+  const [rifornimentoKm, setRifornimentoKm] = useState("");
+const [quantitaLitri, setQuantitaLitri] = useState("");
 
   const [jpgFile, setJpgFile] = useState<File | null>(null);
 
@@ -101,6 +103,14 @@ export default function Sorveglianza() {
     if (!latLng) return alert("Posizione non disponibile");
 
     const kmGiornalieri = Number(kmArrivo) - Number(kmPartenza);
+    let prossimoRifornimento = null;
+
+if (rifornimentoKm && quantitaLitri) {
+  const consumoMedio = kmGiornalieri / Number(quantitaLitri); 
+  // km per litro stimati
+  prossimoRifornimento =
+    Number(rifornimentoKm) + (Number(quantitaLitri) * consumoMedio);
+}
     if (kmGiornalieri < 0) return alert("KM arrivo non validi");
 
     setLoading(true);
@@ -135,6 +145,9 @@ export default function Sorveglianza() {
         kmPartenza: Number(kmPartenza),
         kmArrivo: Number(kmArrivo),
         kmGiornalieri,
+        rifornimentoKm: rifornimentoKm ? Number(rifornimentoKm) : null,
+quantitaLitri: quantitaLitri ? Number(quantitaLitri) : null,
+ prossimoRifornimento,
         pdf: pdfUrl,
         jpg: jpgUrl,
         latitudine: latLng.lat,
@@ -160,6 +173,8 @@ export default function Sorveglianza() {
       setTipoVeicolo("");
       setTarga("");
       setKmPartenza("");
+      setRifornimentoKm("");
+setQuantitaLitri("");
       setKmArrivo("");
       setJpgFile(null);
       setPdfFormData({
@@ -266,6 +281,16 @@ export default function Sorveglianza() {
             <input className="input" type="number" placeholder="KM Partenza" value={kmPartenza} onChange={e => setKmPartenza(e.target.value)} />
             <input className="input" type="number" placeholder="KM Arrivo" value={kmArrivo} onChange={e => setKmArrivo(e.target.value)} />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+  <input className="input" type="number" placeholder="Rifornimento a KM"
+    value={rifornimentoKm}
+    onChange={e => setRifornimentoKm(e.target.value)}
+  />
+  <input className="input" type="number" placeholder="Quantità Litri"
+    value={quantitaLitri}
+    onChange={e => setQuantitaLitri(e.target.value)}
+  />
+</div>
 
           <input
             type="file"

@@ -93,7 +93,10 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>Tipo Veicolo</th>
   <th>Targa</th>
   <th>KM Giornalieri</th>
-  <th>PDF</th>
+<th>Rifornimento a KM</th>
+<th>Quantità (L)</th>
+<th>Prossimo Rifornimento Stimato</th>
+<th>PDF</th>
   <th>Foto</th>
   <th>Azione</th>
 
@@ -114,6 +117,8 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>Stato</th>
     <th>Comparto</th>
   <th>Distretto</th>
+    <th>Gestione</th>
+
 </tr>
 </thead>
 <tbody id="veicoliBody"></tbody>
@@ -138,6 +143,46 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 </thead>
 <tbody id="richiesteBody"></tbody>
 </table>
+</div>
+<div id="modalGestione" style="
+display:none;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 0 20px rgba(0,0,0,0.3);
+z-index:999;
+width:400px;
+">
+
+<h3>Gestione Scadenze Veicolo</h3>
+
+<input type="hidden" id="veicoloId">
+
+<label>Assicurazione:</label><br>
+<input type="date" id="assicurazioneInput"><br><br>
+
+<label>Bollo:</label><br>
+<input type="date" id="bolloInput"><br><br>
+
+<label>Revisione:</label><br>
+<input type="date" id="revisioneInput"><br><br>
+
+<label>Ultimo Tagliando:</label><br>
+<input type="date" id="tagliandoDataInput"><br><br>
+
+<label>KM Ultimo Tagliando:</label><br>
+<input type="number" id="kmTagliandoInput"><br><br>
+
+<label>KM Attuali:</label><br>
+<input type="number" id="kmAttualiInput"><br><br>
+
+<button onclick="salvaGestione()">💾 Salva</button>
+<button onclick="chiudiGestione()">❌ Chiudi</button>
+
 </div>
 
 <!-- FIREBASE -->
@@ -296,8 +341,11 @@ function renderReports(list) {
     <td>${d.comparto}</td>
     <td>${d.tipoVeicolo}</td>
     <td>${d.targa}</td>
-    <td>${d.kmGiornalieri??"-"}</td>
-    <td>${d.pdf?`<a href="${d.pdf}" target="_blank">PDF</a>`:"-"}</td>
+    <td>${d.kmGiornalieri ?? "-"}</td>
+<td>${d.rifornimentoKm ?? "-"}</td>
+<td>${d.quantitaLitri ?? "-"}</td>
+<td>${d.prossimoRifornimento ?? "-"}</td>
+<td>${d.pdf?`<a href="${d.pdf}" target="_blank">PDF</a>`:"-"}</td>
     <td>${d.jpg?`<a href="${d.jpg}" target="_blank">Foto</a>`:"-"}</td>
     <td>
       <button class="btn-reject" onclick="eliminaReport('${d.id}')">
@@ -484,15 +532,40 @@ function loadVeicoli(){
       const active = distrettoAttivo();
       if (active !== "ALL" && v.distretto !== active) return;
 
-      veicoliBody.innerHTML += `
-        <tr>
-          <td>${v.targa || "-"}</td>
-          <td>${v.modello || "-"}</td>
-          <td>${v.stato || "-"}</td>
-          <td>${v.comparto || "-"}</td>
-          <td>Distretto ${v.distretto}</td>
-        </tr>
-      `;
+     const statoCalcolato = calcolaStatoVeicolo(v);
+
+let colore = "";
+if(statoCalcolato.includes("SCADUTA") || statoCalcolato.includes("SUPERATO")){
+  colore = "background:#dc3545;color:white;";
+}
+else if(statoCalcolato.includes("SCADENZA")){
+  colore = "background:#ffc107;";
+}
+
+veicoliBody.innerHTML += `
+<tr style="${colore}">
+  <td>${v.targa || "-"}</td>
+  <td>${v.modello || "-"}</td>
+  <td>${v.stato || "-"}</td>
+  <td>${v.comparto || "-"}</td>
+  <td>Distretto ${v.distretto}</td>
+  <td>
+    <button onclick="apriGestione('${doc.id}', 
+      '${v.assicurazioneScadenza ? v.assicurazioneScadenza.toDate().toISOString().split('T')[0] : ""}',
+      '${v.bolloScadenza ? v.bolloScadenza.toDate().toISOString().split('T')[0] : ""}',
+      '${v.revisioneScadenza ? v.revisioneScadenza.toDate().toISOString().split('T')[0] : ""}',
+      '${v.ultimoTagliandoData ? v.ultimoTagliandoData.toDate().toISOString().split('T')[0] : ""}',
+      '${v.kmUltimoTagliando || ""}',
+      '${v.kmAttuali || ""}'
+    )">
+      ⚙ Gestisci
+    </button>
+    <br>
+    <small>${statoCalcolato}</small>
+  </td>
+</tr>
+`;
+
     });
   });
 }
@@ -526,6 +599,78 @@ async function eliminaRichiesta(richiestaId, veicoloId){
     console.error(err);
     alert("Errore eliminazione richiesta");
   }
+}
+function apriGestione(id, ass, bollo, rev, tagData, kmTag, kmAtt){
+  document.getElementById("modalGestione").style.display="block";
+
+  veicoloId.value = id;
+  assicurazioneInput.value = ass;
+  bolloInput.value = bollo;
+  revisioneInput.value = rev;
+  tagliandoDataInput.value = tagData;
+  kmTagliandoInput.value = kmTag;
+  kmAttualiInput.value = kmAtt;
+}
+
+function chiudiGestione(){
+  document.getElementById("modalGestione").style.display="none";
+}
+
+async function salvaGestione(){
+  const id = veicoloId.value;
+
+  try{
+    await db.collection("veicoli").doc(id).update({
+      assicurazioneScadenza: assicurazioneInput.value ? firebase.firestore.Timestamp.fromDate(new Date(assicurazioneInput.value)) : null,
+      bolloScadenza: bolloInput.value ? firebase.firestore.Timestamp.fromDate(new Date(bolloInput.value)) : null,
+      revisioneScadenza: revisioneInput.value ? firebase.firestore.Timestamp.fromDate(new Date(revisioneInput.value)) : null,
+      ultimoTagliandoData: tagliandoDataInput.value ? firebase.firestore.Timestamp.fromDate(new Date(tagliandoDataInput.value)) : null,
+      kmUltimoTagliando: kmTagliandoInput.value ? Number(kmTagliandoInput.value) : null,
+      kmAttuali: kmAttualiInput.value ? Number(kmAttualiInput.value) : null
+    });
+
+    alert("Dati aggiornati correttamente");
+    chiudiGestione();
+  }
+  catch(err){
+    console.error(err);
+    alert("Errore salvataggio");
+  }
+}
+function calcolaStatoVeicolo(v){
+  const oggi = new Date();
+  let stato = "OK";
+
+  function giorni(ts){
+    if(!ts) return null;
+    return (ts.toDate() - oggi) / (1000*60*60*24);
+  }
+
+  const diffAss = giorni(v.assicurazioneScadenza);
+  const diffBollo = giorni(v.bolloScadenza);
+  const diffRevisione = giorni(v.revisioneScadenza);
+
+  // 🔴 SCADUTI
+  if(diffAss !== null && diffAss < 0) return "ASSICURAZIONE SCADUTA";
+  if(diffBollo !== null && diffBollo < 0) return "BOLLO SCADUTO";
+  if(diffRevisione !== null && diffRevisione < 0) return "REVISIONE SCADUTA";
+
+  // 🟡 IN SCADENZA
+  if(diffAss !== null && diffAss < 30) return "ASSICURAZIONE IN SCADENZA";
+  if(diffBollo !== null && diffBollo < 30) return "BOLLO IN SCADENZA";
+  if(diffRevisione !== null && diffRevisione < 30) return "REVISIONE IN SCADENZA";
+
+  // 🔧 TAGLIANDO KM
+  if(v.kmUltimoTagliando && v.kmAttuali){
+  const intervallo = 15000; // km tra un tagliando e l'altro
+  const prossimo = v.kmUltimoTagliando + intervallo;
+
+    if(v.kmAttuali >= prossimo){
+      return "TAGLIANDO SUPERATO";
+    }
+  }
+
+  return stato;
 }
 
 
