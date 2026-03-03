@@ -8,7 +8,7 @@ const WEBAPP_URL =
 
 export default function MapPage() {
   const mapRef = useRef<any>(null);
-  const leafletRef = useRef<any>(null); // 👈 QUI salviamo L
+  const leafletRef = useRef<any>(null);
   const layersRef = useRef<any[]>([]);
   const intervalRef = useRef<any>(null);
 
@@ -16,13 +16,14 @@ export default function MapPage() {
   const [date, setDate] = useState("");
   const [deviceFilter, setDeviceFilter] = useState("");
   const [devicesInfo, setDevicesInfo] = useState<any[]>([]);
+  const [deviceList, setDeviceList] = useState<string[]>([]);
 
   const colors = [
     "#e74c3c","#3498db","#2ecc71","#f39c12",
     "#9b59b6","#1abc9c","#34495e","#d35400"
   ];
 
-  // 👇 Caricamento Leaflet SOLO lato client
+  // Inizializzazione Leaflet lato client
   useEffect(() => {
     async function init() {
       const L = (await import("leaflet")).default;
@@ -37,6 +38,7 @@ export default function MapPage() {
         ).addTo(mapRef.current);
 
         startTodayMode();
+        loadDeviceList();
       }
     }
 
@@ -69,6 +71,16 @@ export default function MapPage() {
     clearInterval(intervalRef.current);
     clearMap();
     loadHistorical();
+  }
+
+  async function loadDeviceList() {
+    try {
+      const res = await fetch(WEBAPP_URL + "?action=getPoints");
+      const data = await res.json();
+      setDeviceList(Object.keys(data));
+    } catch (err) {
+      console.error("Errore caricamento device:", err);
+    }
   }
 
   async function loadToday() {
@@ -209,12 +221,20 @@ export default function MapPage() {
           onChange={e=>setDate(e.target.value)}
         />
 
+        {/* INPUT CON LISTA DINAMICA */}
         <input
           type="text"
           placeholder="Device (opzionale)"
           value={deviceFilter}
           onChange={e=>setDeviceFilter(e.target.value)}
+          list="devices"
         />
+
+        <datalist id="devices">
+          {deviceList.map(device => (
+            <option key={device} value={device} />
+          ))}
+        </datalist>
 
         <button onClick={startHistoricalMode}>
           Carica Storico

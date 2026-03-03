@@ -103,16 +103,25 @@ const [quantitaLitri, setQuantitaLitri] = useState("");
     if (!latLng) return alert("Posizione non disponibile");
 
     const kmGiornalieri = Number(kmArrivo) - Number(kmPartenza);
-    let prossimoRifornimento = null;
+  let prossimoRifornimento = null;
 
-if (rifornimentoKm && quantitaLitri) {
-  const consumoMedio = kmGiornalieri / Number(quantitaLitri); 
-  // km per litro stimati
-  prossimoRifornimento =
-    Number(rifornimentoKm) + (Number(quantitaLitri) * consumoMedio);
+if (rifornimentoKm && quantitaLitri && kmArrivo) {
+
+  const kmPercorsiDalPieno = Number(kmArrivo) - Number(rifornimentoKm);
+
+  if (kmPercorsiDalPieno > 0) {
+
+    const consumoMedio = kmPercorsiDalPieno / Number(quantitaLitri); // km per litro
+
+    const capacitaSerbatoio = 50; // ⚠️ metti qui la capacità reale del serbatoio
+
+    const autonomiaStimata = consumoMedio * capacitaSerbatoio;
+
+    prossimoRifornimento = Math.round(Number(rifornimentoKm) + autonomiaStimata);
+  }
 }
-    if (kmGiornalieri < 0) return alert("KM arrivo non validi");
 
+if (kmGiornalieri < 0) return alert("KM arrivo non validi");
     setLoading(true);
 
     try {
