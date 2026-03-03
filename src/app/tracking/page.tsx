@@ -192,6 +192,22 @@ export default function MapPage() {
     }
 
     setDevicesInfo(info);
+    // 🔹 AUTOPOSIZIONA LA MAPPA SUI PUNTI TRACCIATI
+if (mapRef.current && Object.keys(data).length > 0) {
+  const L = leafletRef.current;
+  const allLatLngs: [number, number][] = [];
+
+  for (let device in data) {
+    const points = data[device];
+    if (!points || points.length === 0) continue;
+    points.forEach((p: { lat: number; lng: number }) => allLatLngs.push([p.lat, p.lng]));
+  }
+
+  if (allLatLngs.length > 0) {
+    const bounds = L.latLngBounds(allLatLngs);
+    mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+  }
+}
   }
 
   return (
