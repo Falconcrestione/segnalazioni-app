@@ -212,77 +212,167 @@ if (mapRef.current && Object.keys(data).length > 0) {
 
   return (
     <>
-      <div style={{
-        position:"absolute",
-        left:0,
-        top:0,
-        bottom:0,
-        width:260,
-        background:"#fff",
-        padding:15,
-        zIndex:1000,
-        overflowY:"auto"
-      }}>
-        <h3>Tracking</h3>
+     <div style={{
+  position: "absolute",
+  left: 0,
+  top: 0,
+  bottom: 0,
+  width: 300,
+  background: "#f4f6f9",
+  padding: 20,
+  zIndex: 1000,
+  overflowY: "auto",
+  boxShadow: "2px 0 10px rgba(0,0,0,0.1)"
+}}>
 
-        <button onClick={startTodayMode}>
-          Oggi (Live)
-        </button>
+  <h2 style={{
+    marginBottom: 20,
+    color: "#2c3e50"
+  }}>
+    🚗 Tracking
+  </h2>
 
-        <hr/>
+  {/* CARD CONTROLLI */}
+  <div style={{
+    background: "#fff",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+    boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
+  }}>
 
-        <input
-          type="date"
-          value={date}
-          onChange={e=>setDate(e.target.value)}
-        />
+    <button
+      onClick={startTodayMode}
+      style={{
+        width: "100%",
+        padding: 10,
+        marginBottom: 10,
+        background: "#3498db",
+        color: "#fff",
+        border: "none",
+        borderRadius: 6,
+        cursor: "pointer",
+        fontWeight: 600
+      }}
+    >
+      🔴 Oggi (Live)
+    </button>
 
-        {/* INPUT CON LISTA DINAMICA */}
-        <input
-          type="text"
-          placeholder="Device (opzionale)"
-          value={deviceFilter}
-          onChange={e=>setDeviceFilter(e.target.value)}
-          list="devices"
-        />
+    <input
+      type="date"
+      value={date}
+      onChange={e=>setDate(e.target.value)}
+      style={{
+        width: "100%",
+        padding: 8,
+        marginBottom: 10,
+        borderRadius: 6,
+        border: "1px solid #ddd"
+      }}
+    />
 
-        <datalist id="devices">
-          {deviceList.map(device => (
-            <option key={device} value={device} />
-          ))}
-        </datalist>
+    <input
+      type="text"
+      placeholder="Seleziona device"
+      value={deviceFilter}
+      onChange={e=>setDeviceFilter(e.target.value)}
+      list="devices"
+      style={{
+        width: "100%",
+        padding: 8,
+        marginBottom: 10,
+        borderRadius: 6,
+        border: "1px solid #ddd"
+      }}
+    />
 
-        <button onClick={startHistoricalMode}>
-          Carica Storico
-        </button>
+    <datalist id="devices">
+      {deviceList.map(device => (
+        <option key={device} value={device} />
+      ))}
+    </datalist>
 
-        <button onClick={clearMap}>
-          Reset
-        </button>
+    <button
+      onClick={startHistoricalMode}
+      style={{
+        width: "100%",
+        padding: 10,
+        marginBottom: 10,
+        background: "#2ecc71",
+        color: "#fff",
+        border: "none",
+        borderRadius: 6,
+        cursor: "pointer",
+        fontWeight: 600
+      }}
+    >
+      📅 Carica Storico
+    </button>
 
-        <hr/>
+    <button
+      onClick={clearMap}
+      style={{
+        width: "100%",
+        padding: 8,
+        background: "#e74c3c",
+        color: "#fff",
+        border: "none",
+        borderRadius: 6,
+        cursor: "pointer"
+      }}
+    >
+      ♻ Reset
+    </button>
 
-        <b>Modalità:</b> {mode}
+  </div>
 
-        <hr/>
+  {/* MODALITÀ */}
+  <div style={{
+    marginBottom: 15,
+    fontSize: 14
+  }}>
+    Modalità:
+    <span style={{
+      marginLeft: 8,
+      padding: "4px 8px",
+      borderRadius: 20,
+      background: mode === "today" ? "#e74c3c" : "#2ecc71",
+      color: "#fff",
+      fontSize: 12
+    }}>
+      {mode === "today" ? "LIVE" : "STORICO"}
+    </span>
+  </div>
 
-        {devicesInfo.map(d=>(
-          <div key={d.name} style={{marginBottom:10}}>
-            <div style={{
-              width:12,
-              height:12,
-              background:d.color,
-              display:"inline-block",
-              marginRight:6
-            }}/>
-            <b>{d.name}</b><br/>
-            {d.distance} km<br/>
-            {d.points} punti
-          </div>
-        ))}
+  {/* LISTA DEVICE */}
+  {devicesInfo.map(d => (
+    <div
+      key={d.name}
+      style={{
+        background: "#fff",
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 12,
+        boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
+        borderLeft: `5px solid ${d.color}`
+      }}
+    >
+      <div style={{ fontWeight: 700, marginBottom: 5 }}>
+        {d.name}
       </div>
 
-      <div id="map" style={{height:"100vh", marginLeft:260}} />
+      <div style={{ fontSize: 13, color: "#555" }}>
+        📍 {d.distance} km
+      </div>
+
+      <div style={{ fontSize: 13, color: "#555" }}>
+        📊 {d.points} punti
+      </div>
+    </div>
+  ))}
+
+</div>
+     <div id="map" style={{ height:"100vh", marginLeft:300 }} />
     </>
   );
 }
