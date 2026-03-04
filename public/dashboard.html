@@ -114,11 +114,11 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <tr>
   <th>Targa</th>
   <th>Modello</th>
-  <th>Stato</th>
-    <th>Comparto</th>
+  <th>Stato Assegnazione</th>
+  <th>Stato Veicolo</th>
+  <th>Comparto</th>
   <th>Distretto</th>
-    <th>Gestione</th>
-
+  <th>Gestione</th>
 </tr>
 </thead>
 <tbody id="veicoliBody"></tbody>
@@ -546,10 +546,24 @@ veicoliBody.innerHTML += `
 <tr style="${colore}">
   <td>${v.targa || "-"}</td>
   <td>${v.modello || "-"}</td>
-  <td>${v.stato || "-"}</td>
-  <td>${v.comparto || "-"}</td>
-  <td>Distretto ${v.distretto}</td>
-  <td>
+ <td>${v.stato || "-"}</td>
+
+<td>
+  <span style="
+    padding:4px 8px;
+    border-radius:6px;
+    background:${(v.statoVeicolo || "Operativo") === "In riparazione" ? "#dc3545" : "#28a745"};
+    color:white;
+    font-size:12px;
+  ">
+    ${v.statoVeicolo || "Operativo"}
+  </span>
+</td>
+
+<td>${v.comparto || "-"}</td>
+<td>Distretto ${v.distretto}</td>
+
+<td>
     <button onclick="apriGestione('${doc.id}', 
       '${v.assicurazioneScadenza ? v.assicurazioneScadenza.toDate().toISOString().split('T')[0] : ""}',
       '${v.bolloScadenza ? v.bolloScadenza.toDate().toISOString().split('T')[0] : ""}',
@@ -562,6 +576,11 @@ veicoliBody.innerHTML += `
     </button>
     <br>
     <small>${statoCalcolato}</small>
+    <br>
+    <button onclick="toggleStatoVeicolo('${doc.id}', '${v.statoVeicolo || "Operativo"}')"
+  style="background:#6c757d;color:white;margin-top:5px;">
+  🔄 Cambia Stato
+</button>
   </td>
 </tr>
 `;
@@ -672,7 +691,26 @@ function calcolaStatoVeicolo(v){
 
   return stato;
 }
+async function toggleStatoVeicolo(id, statoAttuale){
 
+  const nuovoStato = statoAttuale === "Operativo"
+    ? "In riparazione"
+    : "Operativo";
+
+  if(!confirm("Vuoi cambiare lo stato del veicolo in '" + nuovoStato + "'?")) return;
+
+  try{
+    await db.collection("veicoli").doc(id).update({
+      statoVeicolo: nuovoStato
+    });
+
+    alert("Stato aggiornato a: " + nuovoStato);
+  }
+  catch(err){
+    console.error(err);
+    alert("Errore aggiornamento stato");
+  }
+}
 
 function reloadAll(){ loadReports(); loadVeicoli(); loadRichieste(); }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
