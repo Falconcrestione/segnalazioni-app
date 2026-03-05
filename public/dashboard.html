@@ -80,6 +80,9 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <div style="margin-bottom:10px;">
   <button class="btn-approve" onclick="reportsMode='recent'; loadReports();">Mostra recenti</button>
   <button class="btn-approve" onclick="reportsMode='all'; loadReports();">Mostra tutti</button>
+  <button class="btn-approve" onclick="exportReportsExcel()">
+  📥 Scarica Excel
+</button>
 </div>
 
 <h3 id="totKm">Totale KM: 0</h3>
@@ -196,6 +199,9 @@ width:400px;
 <!-- EMAILJS -->
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
+<!-- EXEL -->
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <script>
 firebase.initializeApp({
@@ -710,6 +716,45 @@ async function toggleStatoVeicolo(id, statoAttuale){
     console.error(err);
     alert("Errore aggiornamento stato");
   }
+}
+function exportReportsExcel() {
+  if (!reportsCache || reportsCache.length === 0) {
+    alert("Nessun dato da esportare");
+    return;
+  }
+
+  // Filtra i report visibili secondo distretto e modalità
+  const active = distrettoAttivo();
+  let filtered = reportsMode === "recent" ? reportsCache.slice(-20) : reportsCache;
+  filtered = filtered.filter(d => {
+    if (!d.distretto) return false;
+    const dNum = typeof d.distretto === "number" ? d.distretto : Number(d.distretto.replace("Distretto ", ""));
+    return active === "ALL" || dNum === active;
+  });
+
+  // Prepara i dati da esportare
+  const exportData = filtered.map(d => ({
+    "Data / Ora": d.createdAt ? d.createdAt.toDate().toLocaleString("it-IT") : "-",
+    "Distretto": d.distretto,
+    "Comparto": d.comparto ?? "-",
+    "Tipo Veicolo": d.tipoVeicolo ?? "-",
+    "Targa": d.targa ?? "-",
+    "KM Giornalieri": d.kmGiornalieri ?? "-",
+    "Rifornimento a KM": d.rifornimentoKm ?? "-",
+    "Quantità (L)": d.quantitaLitri ?? "-",
+    "Prossimo Rifornimento Stimato": d.prossimoRifornimento ?? "-",
+    "PDF": d.pdf ?? "-",
+    "Foto": d.jpg ?? "-"
+  }));
+
+  // Crea il foglio Excel
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Reports");
+
+  // Salva il file
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  saveAs(new Blob([wbout], { type: "application/octet-stream" }), `Reports_${Date.now()}.xlsx`);
 }
 
 function reloadAll(){ loadReports(); loadVeicoli(); loadRichieste(); }

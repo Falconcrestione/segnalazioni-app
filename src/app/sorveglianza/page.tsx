@@ -111,11 +111,11 @@ if (rifornimentoKm && quantitaLitri && kmArrivo) {
 
   if (kmPercorsiDalPieno > 0) {
 
-    const consumoMedio = kmPercorsiDalPieno / Number(quantitaLitri); // km per litro
+    const consumoMedio = 15; // km per litro
 
     const capacitaSerbatoio = 50; // ⚠️ metti qui la capacità reale del serbatoio
 
-    const autonomiaStimata = consumoMedio * capacitaSerbatoio;
+    const autonomiaStimata = consumoMedio * Number(quantitaLitri);
 
     prossimoRifornimento = Math.round(Number(rifornimentoKm) + autonomiaStimata);
   }
