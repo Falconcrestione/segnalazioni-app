@@ -13,7 +13,7 @@ export default function Home() {
     const password = prompt("Inserisci password Tracking");
 
     if (password === "tracking123") {
-      router.push("/tracking");
+      router.push("/tracking1");
     } else {
       alert("Password errata!");
     }
