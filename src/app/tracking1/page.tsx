@@ -225,14 +225,22 @@ if (dist > 10) { // minimo 10 metri di movimento
 
       const icon = L.divIcon({
   html: `
-  <div style="transform: rotate(${bearing}deg);">
+  <div style="
+    width:30px;
+    height:30px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transform: rotate(${bearing + 90}deg);
+    transform-origin: 50% 50%;
+  ">
     <svg width="30" height="30" viewBox="0 0 24 24">
       <path fill="${color}" d="M18.92 6c-.28-.83-1.04-1.4-1.92-1.4H7c-.88 0-1.64.57-1.92 1.4L3 12v6c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-6l-2.08-6zM7 15c-.83 0-1.5-.67-1.5-1.5S6.17 12 7 12s1.5.67 1.5 1.5S7.83 15 7 15zm10 0c-.83 0-1.5-.67-1.5-1.5S16.17 12 17 12s1.5.67 1.5 1.5S17.83 15 17 15z"/>
     </svg>
   </div>
   `,
-  iconSize:[30,30],
-  iconAnchor:[15,15]
+  iconSize: [30,30],
+  iconAnchor: [15,15]
 });
 
       const marker = L.marker([
