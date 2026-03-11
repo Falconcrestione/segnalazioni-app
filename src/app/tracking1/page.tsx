@@ -24,9 +24,10 @@ const USERS = [
 
 export default function MapPage() {
   const mapRef = useRef<any>(null);
-  const leafletRef = useRef<any>(null);
-  const layersRef = useRef<any[]>([]);
-  const intervalRef = useRef<any>(null);
+const leafletRef = useRef<any>(null);
+const layersRef = useRef<any[]>([]);
+const intervalRef = useRef<any>(null);
+const bearingsRef = useRef<any>({});
 
   const [loggedIn, setLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -209,15 +210,17 @@ export default function MapPage() {
   Number(String(last.lng).replace(",", "."))
 );
 
-let bearing = 0;
+let bearing = bearingsRef.current[device] || 0;
 
-if (dist > 5) { // minimo 5 metri di movimento
+if (dist > 10) { // minimo 10 metri di movimento
   bearing = calculateBearing(
     Number(String(prev.lat).replace(",", ".")),
     Number(String(prev.lng).replace(",", ".")),
     Number(String(last.lat).replace(",", ".")),
     Number(String(last.lng).replace(",", "."))
   );
+
+  bearingsRef.current[device] = bearing;
 }
 
       const icon = L.divIcon({
