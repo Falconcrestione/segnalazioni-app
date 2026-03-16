@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
 
 const WEBAPP_URL =
-  "https://script.google.com/macros/s/AKfycbwpQLezbsELEppjmGQOsKXLXn1RBWfjd0hUC4zlpYraWTWmERbyMfiOFsw36MsQ4h3h/exec";
+  "https://script.google.com/macros/s/AKfycby3DopxNOazSQ_qpl5CMNe15xpQzUM6HxHxR-mXSMxrIclbuTyKZqhCxDhSyevMNmZL/exec";
 
 // UTENTI CON DISTRICT
 const USERS = [
