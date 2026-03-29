@@ -86,6 +86,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 </div>
 
 <h3 id="totKm">Totale KM: 0</h3>
+<h3 id="totEuro">Totale €: 0</h3>
 <div class="table-container">
 <table>
 <thead>
@@ -98,6 +99,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>KM Giornalieri</th>
 <th>Rifornimento a KM</th>
 <th>Quantità (L)</th>
+<th>Importo (€)</th>
 <th>Prossimo Rifornimento Stimato</th>
 <th>PDF</th>
   <th>Foto</th>
@@ -332,6 +334,7 @@ function renderReports(list) {
   reportsBody.innerHTML="";
   markersReport.clearLayers();
   let totaleKm=0;
+  let totaleEuro = 0;
   let filtered = reportsMode==="recent"?list.slice(-20):list;
   filtered.forEach(d=>{
     if(!d.distretto) return;
@@ -340,6 +343,7 @@ function renderReports(list) {
     if(active!=="ALL" && dNum!==active) return;
     const dataOra = d.createdAt?d.createdAt.toDate().toLocaleString("it-IT"):"-";
     if(d.kmGiornalieri) totaleKm+=Number(d.kmGiornalieri);
+    if (d.importoeuro) totaleEuro += Number(d.importoeuro);
   reportsBody.innerHTML+=`
   <tr>
     <td>${dataOra}</td>
@@ -350,6 +354,14 @@ function renderReports(list) {
     <td>${d.kmGiornalieri ?? "-"}</td>
 <td>${d.rifornimentoKm ?? "-"}</td>
 <td>${d.quantitaLitri ?? "-"}</td>
+<td>${
+  d.importoeuro != null
+    ? new Intl.NumberFormat("it-IT", {
+        style: "currency",
+        currency: "EUR"
+      }).format(d.importoeuro)
+    : "-"
+}</td>
 <td>${d.prossimoRifornimento ?? "-"}</td>
 <td>${d.pdf?`<a href="${d.pdf}" target="_blank">PDF</a>`:"-"}</td>
     <td>${d.jpg?`<a href="${d.jpg}" target="_blank">Foto</a>`:"-"}</td>
@@ -368,6 +380,12 @@ function renderReports(list) {
     }
   });
   totKm.innerText="Totale KM: "+totaleKm;
+  totEuro.innerText =
+  "Totale €: " +
+  new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR"
+  }).format(totaleEuro);
 }
 
 /* ================= RICHIESTE ================= */
@@ -742,6 +760,7 @@ function exportReportsExcel() {
     "KM Giornalieri": d.kmGiornalieri ?? "-",
     "Rifornimento a KM": d.rifornimentoKm ?? "-",
     "Quantità (L)": d.quantitaLitri ?? "-",
+    "Importo (€)": d.importoeuro ?? "-",
     "Prossimo Rifornimento Stimato": d.prossimoRifornimento ?? "-",
     "PDF": d.pdf ?? "-",
     "Foto": d.jpg ?? "-"

@@ -26,6 +26,7 @@ export default function Sorveglianza() {
   const [kmArrivo, setKmArrivo] = useState("");
   const [rifornimentoKm, setRifornimentoKm] = useState("");
 const [quantitaLitri, setQuantitaLitri] = useState("");
+const[importoeuro, setImportoEuro] = useState("");
 
   const [jpgFile, setJpgFile] = useState<File | null>(null);
 
@@ -157,6 +158,7 @@ if (kmGiornalieri < 0) return alert("KM arrivo non validi");
         rifornimentoKm: rifornimentoKm ? Number(rifornimentoKm) : null,
 quantitaLitri: quantitaLitri ? Number(quantitaLitri) : null,
  prossimoRifornimento,
+  importoeuro: importoeuro ? Number(importoeuro) : null, // ✅ FIX
         pdf: pdfUrl,
         jpg: jpgUrl,
         latitudine: latLng.lat,
@@ -184,6 +186,7 @@ quantitaLitri: quantitaLitri ? Number(quantitaLitri) : null,
       setKmPartenza("");
       setRifornimentoKm("");
 setQuantitaLitri("");
+setImportoEuro("")
       setKmArrivo("");
       setJpgFile(null);
       setPdfFormData({
@@ -297,7 +300,11 @@ setQuantitaLitri("");
   />
   <input className="input" type="number" placeholder="Quantità Litri"
     value={quantitaLitri}
-    onChange={e => setQuantitaLitri(e.target.value)}
+    onChange={e => setQuantitaLitri(e.target.value)} 
+  />
+   <input className="input" type="number" placeholder="Importo Euro"
+    value={importoeuro}
+    onChange={e => setImportoEuro(e.target.value)} 
   />
 </div>
 

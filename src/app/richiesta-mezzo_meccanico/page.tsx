@@ -30,7 +30,10 @@ export default function RichiediVeicolo() {
 
   const [pdfFile, setPdfFile] = useState<File | null>(null);
 
-  const distretti = Array.from({ length: 11 }, (_, i) => `Distretto ${i + 1}`);
+  const distretti = [
+  ...Array.from({ length: 11 }, (_, i) => `Distretto ${i + 1}`),
+  "sede_centrale"
+];
 
   /* 🔄 CARICA MEZZI */
   useEffect(() => {
@@ -41,11 +44,17 @@ export default function RichiediVeicolo() {
     }
 
     const loadMezzi = async () => {
-      const numeroDistretto = Number(distretto.replace("Distretto ", ""));
+      let valoreDistretto;
+
+if (distretto === "sede_centrale") {
+  valoreDistretto = "sede_centrale"; // deve combaciare col DB
+} else {
+  valoreDistretto = Number(distretto.replace("Distretto ", ""));
+}
 
       const q = query(
         collection(db, "mezziMeccanici"),
-        where("distretto", "==", numeroDistretto),
+       where("distretto", "==", valoreDistretto),
         where("stato", "==", "libero")
       );
 
@@ -90,8 +99,13 @@ export default function RichiediVeicolo() {
       async pos => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        const numeroDistretto = Number(distretto.replace("Distretto ", ""));
+       let valoreDistretto;
 
+if (distretto === "sede_centrale") {
+  valoreDistretto = "sede_centrale";
+} else {
+  valoreDistretto = Number(distretto.replace("Distretto ", ""));
+}
         const mezzo = mezzi.find(m => m.id === mezzoId);
         if (!mezzo) return alert("Mezzo non valido");
 
@@ -101,7 +115,7 @@ export default function RichiediVeicolo() {
           sitoIntervento,
           dataMissione: Timestamp.fromDate(new Date(dataMissione)),
           durataPresunta: Number(durataPresunta),
-          distretto: numeroDistretto,
+       distretto: valoreDistretto,
           mezzoId: mezzo.id,
           identificativo: mezzo.identificativo,
           tipoMezzo: mezzo.tipoMezzo,
@@ -224,3 +238,4 @@ export default function RichiediVeicolo() {
     </div>
   );
 }
+

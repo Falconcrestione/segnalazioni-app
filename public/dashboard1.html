@@ -79,6 +79,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>Superficie (m²)</th>
   <th>Operatore</th>
   <th>Note</th>
+   <th>Comune</th>
   
 </tr>
 </thead>
@@ -95,11 +96,12 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <thead>
     <tr>
       <th>Data/ora</th>
-      <th>Tipo Mezzo</th>
+      <th>tipoMezzo</th>
       <th>Identificativo</th>
       <th>Sito intervento</th>
       <th>Durata Lavori presunta (giorni)</th>
       <th>Stato</th> <!-- nuova colonna -->
+       <th>Comune</th>
     </tr>
   </thead>
   <tbody id="dislocazioneBody"></tbody>
@@ -123,6 +125,9 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
         </th>
         <th style="position:sticky; top:0; background:#0070f3; color:white; z-index:2;">
           Distretto
+        </th>
+         <th style="position:sticky; top:0; background:#0070f3; color:white; z-index:2;">
+          tipoMezzo
         </th>
       </tr>
     </thead>
@@ -215,7 +220,9 @@ function checkPassword() {
   accessGranted = true; reloadAll();
 }
 
-function distrettoAttivo() { return distrettoSelector.value==="ALL"?"ALL":Number(distrettoSelector.value); }
+function distrettoAttivo() { 
+  return distrettoSelector.value; 
+}
 
 /* ================= SEARCH ================= */
 function cercaReportsmezzi() {
@@ -255,11 +262,8 @@ function renderReportsmezzi(list) {
   const filtered = reportsMode === "recent" ? list.slice(-20) : list;
 
   filtered.forEach(d => {
-    if (!d.distretto) return;
-
     const active = distrettoAttivo();
-    const dNum = typeof d.distretto === "number" ? d.distretto : Number(d.distretto.replace("Distretto ", ""));
-    if (active !== "ALL" && dNum !== active) return;
+if (active !== "ALL" && d.distretto != active) return;
 
     const dataOra = d.createdAt ? d.createdAt.toDate().toLocaleString("it-IT") : "-";
     if (d.kmGiornalieri) totaleKm += Number(d.kmGiornalieri);
@@ -277,6 +281,7 @@ function renderReportsmezzi(list) {
     <td>${d.superficieMq || 0}</td>
     <td>${d.operatore || "-"}</td>
     <td>${d.note || "-"}</td>
+      <td>${d.comune || "-"}</td>
   </tr>
 `;
 
@@ -308,6 +313,7 @@ function loadRichiestemezzo() {
 
   richiesteListener = db.collection("richiestemezzi").onSnapshot(async snap => {
     body.innerHTML = "";
+    markersRichieste.clearLayers();
     const veicoliSnap = await db.collection("mezziMeccanici").get();
     mezziLiberi = veicoliSnap.docs.map(vdoc => {
       const v = vdoc.data();
@@ -316,25 +322,34 @@ function loadRichiestemezzo() {
 
     snap.forEach(doc => {
       const r = doc.data();
-      if(typeof r.distretto !== "number") return;
-      const active = distrettoAttivo();
-      if(active !== "ALL" && r.distretto !== active) return;
+     const active = distrettoAttivo();
+if(active !== "ALL" && r.distretto != active) return;
 
       let azioni = "";
       if(r.status === "in attesa") {
         const options = mezziLiberi
           .filter(v => v.distretto === r.distretto)
-          .map(v => `<option value="${v.id}|${v.identificativo}|${v.modello}">${v.identificativo} – ${v.modello}</option>`)
+          .map(v => `<option value="${v.id}|${v.identificativo}|${v.tipoMezzo}">
+  ${v.identificativo} – ${v.tipoMezzo}
+</option>`)
           .join("");
 
-        azioni = `
-          <select id="mezzo_${doc.id}">
-            <option value="">Seleziona mezzo</option>
-            ${options}
-          </select>
-          <button class="btn-approve" onclick="assegnaVeicolo('${doc.id}','${r.email}')">Assegna</button>
-          <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">NO</button>
-        `;
+       azioni = `
+  <select id="mezzo_${doc.id}">
+    <option value="">Seleziona mezzo</option>
+    ${options}
+  </select>
+
+  <input 
+    type="text" 
+    id="comune_${doc.id}" 
+    placeholder="Inserisci comune"
+    style="margin-top:5px;"
+  />
+
+  <button class="btn-approve" onclick="assegnaVeicolo('${doc.id}','${r.email}')">Assegna</button>
+  <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">NO</button>
+`;
       } else if(r.status === "approvata") {
         azioni = `<button class="btn-approve" onclick="completaMissione('${doc.id}','${r.veicoloId}')">✅ Completa Missione</button>`;
       }
@@ -363,7 +378,12 @@ function loadRichiestemezzo() {
             popupAnchor:[0,-41]
           })
         });
-        marker.bindPopup(`<b>Richiesta approvata</b><br>Veicolo: ${r.identificativo||r.tipoMezzo}<br>Distretto: ${r.distretto}<br>Utente: ${r.nome}`);
+      marker.bindPopup(`
+  <b>📍 Mezzo assegnato</b><br>
+  🚜 Mezzo: ${r.tipoMezzo || "-"}<br>
+  🆔 ID: ${r.identificativo || r.veicoloTarga}<br>
+  🏙 Comune: ${r.comune || "-"}
+`);
         markersRichieste.addLayer(marker);
       }
     });
@@ -373,41 +393,63 @@ function loadRichiestemezzo() {
 
 async function assegnaVeicolo(richiestaId, emailDestinatario){
   const sel = document.getElementById(`mezzo_${richiestaId}`);
+  const comuneInput = document.getElementById(`comune_${richiestaId}`);
+
   if(!sel || !sel.value) return alert("Seleziona un Mezzo");
-  const [veicoloId, targa, modello] = sel.value.split("|");
+  if(!comuneInput || !comuneInput.value) return alert("Inserisci il comune");
 
-  if(!navigator.geolocation) { alert("Geolocalizzazione non supportata"); return; }
+  const comune = comuneInput.value;
+ const [veicoloId, targa, tipoMezzo] = sel.value.split("|");
 
-  navigator.geolocation.getCurrentPosition(async pos => {
-    try{
-      await db.collection('richiestemezzi').doc(richiestaId).update({
-        status:'approvata',
-        veicoloId,
-        veicoloTarga: targa,
-        veicoloModello: modello,
-        latitudine: pos.coords.latitude,
-        longitudine: pos.coords.longitude,
-        assegnatoAt: firebase.firestore.Timestamp.now()
-      });
-      await db.collection('mezziMeccanici').doc(veicoloId).update({ stato:'occupato' });
-      inviaMail(emailDestinatario, targa);
-      reloadAll();
-      alert("Veicolo assegnato correttamente");
-    } catch(err){
-      console.error(err);
-      alert("Errore assegnazione");
-    }
-  });
+  try {
+    // 🌍 GEOCODING (OpenStreetMap)
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(comune)}`);
+    const data = await res.json();
+
+    if(!data.length) return alert("Comune non trovato");
+
+    const lat = parseFloat(data[0].lat);
+    const lon = parseFloat(data[0].lon);
+
+    // 🔥 SALVATAGGIO FIREBASE
+    await db.collection('richiestemezzi').doc(richiestaId).update({
+      status:'approvata',
+      veicoloId,
+      veicoloTarga: targa,
+      tipoMezzo: tipoMezzo,
+      comune: comune,
+      latitudine: lat,
+      longitudine: lon,
+      assegnatoAt: firebase.firestore.Timestamp.now()
+    });
+
+    await db.collection('mezziMeccanici').doc(veicoloId).update({ stato:'occupato' });
+
+    inviaMail(emailDestinatario, targa);
+    reloadAll();
+
+    alert("Veicolo assegnato e posizionato su mappa");
+
+  } catch(err){
+    console.error(err);
+    alert("Errore assegnazione");
+  }
 }
-async function rifiutaRichiesta(richiestaId){
-  try{ await db.collection('richiestemezzi').doc(richiestaId).update({status:'rifiutata'}); reloadAll(); }
-  catch(err){ console.error(err); alert("Errore rifiuto richiesta"); }
-}
 
-async function completaMissione(richiestaId,veicoloId){
-  try{
+async function completaMissione(richiestaId, veicoloId){
+  try {
+    // Aggiorna DB
     await db.collection('mezziMeccanici').doc(veicoloId).update({stato:'libero'});
     await db.collection('richiestemezzi').doc(richiestaId).update({status:'completata'});
+
+    // Rimuovi marker relativo dalla mappa
+    markersRichieste.eachLayer(marker => {
+      if(marker.getPopup().getContent().includes(veicoloId) || marker.getPopup().getContent().includes(richiestaId)){
+        markersRichieste.removeLayer(marker);
+      }
+    }
+    );
+
     reloadAll();
     alert("Veicolo liberato e missione completata!");
   } catch(err){ console.error(err); alert("Errore completamento missione"); }
@@ -433,10 +475,10 @@ function loadMezzi() {
     snap.forEach(doc => {
       const v = doc.data();
 
-      if (typeof v.distretto !== "number") return;
+     //f (typeof v.distretto !== "number") return;
 
       const active = distrettoAttivo();
-      if (active !== "ALL" && v.distretto !== active) return;
+    if (active !== "ALL" && v.distretto != active) return;
 
       veicoliBody.innerHTML += `
         <tr>
@@ -444,6 +486,7 @@ function loadMezzi() {
           <td>${v.stato}</td>
           <td>${v.comparto}</td>
           <td>Distretto ${v.distretto}</td>
+          <td>${v.tipoMezzo}<td>
         </tr>
       `;
     });
@@ -459,8 +502,14 @@ function loadDislocazioneMezzi() {
   db.collection("richiestemezzi").onSnapshot(snap => {
     tbody.innerHTML = "";
 
-    snap.forEach(doc => {
-      const r = doc.data();
+    snap.forEach(async doc => {
+  const r = doc.data();
+  let tipoMezzo = r.tipoMezzo || "";
+
+if (!tipoMezzo && r.veicoloId) {
+  const mezzoDoc = await db.collection("mezziMeccanici").doc(r.veicoloId).get();
+  tipoMezzo = mezzoDoc.data()?.tipoMezzo || "";
+}
 
       // mostriamo SOLO approvate e completate
       if (r.status !== "approvata" && r.status !== "completata") return;
@@ -501,11 +550,12 @@ function loadDislocazioneMezzi() {
       tbody.innerHTML += `
         <tr style="${rowStyle}">
           <td>${dataMissione ? dataMissione.toLocaleDateString("it-IT") : "-"}</td>
-          <td>${r.veicoloModello || r.tipoMezzo}</td>
+        <td>${tipoMezzo || "-"}</td>
           <td>${r.identificativo || r.veicoloTarga}</td>
           <td>${r.sitoIntervento || "-"}</td>
           <td>${durata}</td>
           <td>${stato}</td>
+          <td>${r.comune || "-"}</td>
         </tr>
       `;
     });
