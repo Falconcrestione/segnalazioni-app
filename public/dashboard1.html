@@ -80,6 +80,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>Operatore</th>
   <th>Note</th>
    <th>Comune</th>
+   <th>Allegati</th>
   
 </tr>
 </thead>
@@ -160,6 +161,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
 
 <!-- LEAFLET -->
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -174,6 +176,7 @@ firebase.initializeApp({
   apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
   authDomain: "attendance-2980e.firebaseapp.com",
   projectId: "attendance-2980e",
+  storageBucket: "attendance-2980e.appspot.com" // ✅ AGGIUNGI QUESTO
 });
 const db = firebase.firestore();
 
@@ -249,7 +252,10 @@ function cercaReportsmezzi() {
 function loadReportsmezzi() {
   if (!accessGranted) return;
   db.collection("reportmezzi").onSnapshot(snap => {
-    reportsCache = snap.docs.map(d=>d.data());
+   reportsCache = snap.docs.map(d => ({
+  id: d.id,
+  ...d.data()
+}));
      renderReportsmezzi(reportsCache);
   });
 }
@@ -282,6 +288,26 @@ if (active !== "ALL" && d.distretto != active) return;
     <td>${d.operatore || "-"}</td>
     <td>${d.note || "-"}</td>
       <td>${d.comune || "-"}</td>
+      <td>
+  <!-- Upload -->
+  <input type="file" accept="image/*" onchange="uploadAllegato(event, '${d.id}')">
+  <input type="file" accept="application/pdf" onchange="uploadAllegato(event, '${d.id}')">
+
+  <br>
+
+  <!-- Visualizzazione -->
+  ${
+    d.allegati
+      ? d.allegati.map(a => {
+          if(a.tipo && a.tipo.includes("image")){
+            return `<img src="${a.url}" width="40" style="margin:2px; cursor:pointer;" onclick="window.open('${a.url}')">`;
+          } else {
+            return `<a href="${a.url}" target="_blank">📄</a>`;
+          }
+        }).join("")
+      : "-"
+  }
+</td>
   </tr>
 `;
 
@@ -567,6 +593,35 @@ if (!tipoMezzo && r.veicoloId) {
 
 function reloadAll(){  loadReportsmezzi();   loadMezzi(); loadRichiestemezzo(); loadDislocazioneMezzi();  }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
+async function uploadAllegato(event, reportId){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  try {
+    const storage = firebase.storage();
+    const ref = storage.ref(`allegatiReports/${reportId}/${file.name}`);
+
+    // ✅ upload corretto
+    const snapshot = await ref.put(file);
+
+    // ✅ URL corretto
+    const url = await snapshot.ref.getDownloadURL();
+
+    await db.collection("reportmezzi").doc(reportId).update({
+      allegati: firebase.firestore.FieldValue.arrayUnion({
+        url: url,
+        nome: file.name,
+        tipo: file.type
+      })
+    });
+
+    alert("✅ File caricato!");
+
+  } catch(err){
+    console.error("ERRORE:", err);
+    alert("❌ Errore upload: " + err.message);
+  }
+}
 
 clearAllTables();
 </script>
