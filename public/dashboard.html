@@ -104,6 +104,8 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <th>PDF</th>
   <th>Foto</th>
   <th>Azione</th>
+  <th>Modifica PDF</th>
+  <th>Modifica Campi</th>
 
 </tr>
 </thead>
@@ -187,12 +189,64 @@ width:400px;
 
 <button onclick="salvaGestione()">💾 Salva</button>
 <button onclick="chiudiGestione()">❌ Chiudi</button>
+</div>
+
+<div id="modalReport" style="
+display:none;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 0 20px rgba(0,0,0,0.3);
+z-index:999;
+width:400px;
+">
+
+<h3>Modifica Campi Report</h3>
+
+<input type="hidden" id="reportId">
+
+<label>Distretto</label>
+<input type="number" id="editDistretto"><br><br>
+
+<label>Comparto</label>
+<input type="text" id="editComparto"><br><br>
+
+<label>Tipo Veicolo</label>
+<input type="text" id="editTipoVeicolo"><br><br>
+
+<label>Targa</label>
+<input type="text" id="editTarga"><br><br>
+
+<label>KM Giornalieri</label>
+<input type="number" id="editKm"><br><br>
+
+<label>Rifornimento KM</label>
+<input type="number" id="editRifornimentoKm"><br><br>
+
+<label>Quantità (L)</label>
+<input type="number" id="editLitri"><br><br>
+
+<label>Importo €</label>
+<input type="number" id="editEuro"><br><br>
+
+<label>Prossimo Rifornimento</label>
+<input type="text" id="editProssimo"><br><br>
+
+<button onclick="salvaCampi()">💾 Salva</button>
+<button onclick="chiudiModalReport()">❌ Chiudi</button>
+
+
 
 </div>
 
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
 
 <!-- LEAFLET -->
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -204,13 +258,20 @@ width:400px;
 <!-- EXEL -->
  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
 
 <script>
 firebase.initializeApp({
   apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
   authDomain: "attendance-2980e.firebaseapp.com",
   projectId: "attendance-2980e",
+  storageBucket:"attendance-2980e.appspot.com"
 });
+function getStoragePathFromUrl(url){
+  const base =url.split("/o/")[1];
+  const path =base.split("?")[0];
+  return decodeURIComponent(path);
+}
 const db = firebase.firestore();
 
 // EmailJS init
@@ -247,6 +308,7 @@ const passwords = { ALL: "superpass123", 1: "distretto1pass", 2: "distretto2pass
 let accessGranted = false;
 let reportsMode = "recent";
 let reportsCache = [];
+let currentReport =null;
 
 function checkPassword() {
   const user = distrettoSelector.value;
@@ -366,10 +428,22 @@ function renderReports(list) {
 <td>${d.pdf?`<a href="${d.pdf}" target="_blank">PDF</a>`:"-"}</td>
     <td>${d.jpg?`<a href="${d.jpg}" target="_blank">Foto</a>`:"-"}</td>
     <td>
-      <button class="btn-reject" onclick="eliminaReport('${d.id}')">
-        🗑 Elimina
-      </button>
-    </td>
+  <button class="btn-reject" onclick="eliminaReport('${d.id}')">
+    🗑 Elimina
+  </button>
+</td>
+
+<td>
+  <button onclick="apriModificaReport('${d.id}')">
+    🧾 Modifica Campi
+  </button>
+
+  <br><br>
+
+  <button class="btn-modifica" data-id="${d.id}">
+    📄 Modifica PDF
+  </button>
+</td>
   </tr>
 `;
 
@@ -386,7 +460,20 @@ function renderReports(list) {
     style: "currency",
     currency: "EUR"
   }).format(totaleEuro);
+  // ⚡ Qui aggiungi il listener ai bottoni Modifica PDF
+  document.querySelectorAll(".btn-modifica").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      const report = reportsCache.find(r => String(r.id) === String(id));
+      if (!report) {
+        alert("Report non trovato");
+        return;
+      }
+      apriModifica(report); // apre il PDF o il prompt di modifica
+    });
+  });
 }
+
 
 /* ================= RICHIESTE ================= */
 let veicoliLiberi=[];
@@ -774,6 +861,207 @@ function exportReportsExcel() {
   // Salva il file
   const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   saveAs(new Blob([wbout], { type: "application/octet-stream" }), `Reports_${Date.now()}.xlsx`);
+}
+function apriModifica(report){
+  currentReport = report;
+
+  // Creiamo un oggetto con tutti i valori aggiornabili
+  const nuoviDati = {
+    veicolo: prompt("Veicolo:", report.veicolo),
+    targa: prompt("Targa:", report.targa),
+    data: prompt("Data:", report.data),
+    oraPartenza: prompt("Ora partenza:", report.oraPartenza),
+    oraArrivo: prompt("Ora arrivo:", report.oraArrivo),
+    conducente: prompt("Conducente:", report.conducente),
+    percorso: prompt("Percorso:", report.percorso),
+    kmPartenza: prompt("Km partenza:", report.kmPartenza),
+    kmArrivo: prompt("Km arrivo:", report.kmArrivo),
+    buono: prompt("Buono:", report.buono),
+    benzina: prompt("Benzina:", report.benzina),
+    gasolio: prompt("Gasolio:", report.gasolio),
+    manutenzione: prompt("Manutenzione:", report.manutenzione),
+    lavaggi: prompt("Lavaggi:", report.lavaggi)
+  };
+
+  // Se non hai modificato nulla, esce
+  if(!nuoviDati.targa) return;
+
+  // Passiamo tutti i dati a salvaModificaReport
+  salvaModificaReport(nuoviDati);
+}
+
+
+
+
+async function salvaModificaReport(dati){
+
+  if(!currentReport || !currentReport.pdf){
+    alert("PDF non trovato");
+    return;
+  }
+
+  try {
+
+    // ✅ CREA PDF NUOVO
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const page = pdfDoc.addPage([595,842]);
+
+    const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+
+    const { width, height } = page.getSize();
+
+    // 🔷 TITOLO
+    page.drawText("REPORT VEICOLO", {
+      x: 180,
+      y: height - 40,
+      size: 18,
+      font: bold
+    });
+
+    // LINEA
+    page.drawLine({
+      start: { x: 50, y: height - 50 },
+      end: { x: width - 50, y: height - 50 },
+      thickness: 1
+    });
+
+    // 📌 POSIZIONE INIZIALE
+    let y = height - 80;
+
+    // 📌 FUNZIONE RIGA
+    function riga(label, valore){
+      page.drawText(label, {
+        x: 50,
+        y: y,
+        size: 11,
+        font: bold
+      });
+
+      page.drawText(": " + (valore || "-"), {
+        x: 200,
+        y: y,
+        size: 11,
+        font: font
+      });
+
+      y -= 18;
+    }
+
+    // 📋 DATI PRINCIPALI
+    riga("Veicolo", dati.veicolo);
+    riga("Targa", dati.targa);
+    riga("Data", dati.data);
+    riga("Ora partenza", dati.oraPartenza);
+    riga("Ora arrivo", dati.oraArrivo);
+    riga("Conducente", dati.conducente);
+
+    y -= 10;
+
+    // 🚗 PERCORSO
+    page.drawText("PERCORSO", {
+      x: 50,
+      y: y,
+      size: 13,
+      font: bold
+    });
+    y -= 20;
+
+    riga("Percorso", dati.percorso);
+    riga("Km partenza", dati.kmPartenza);
+    riga("Km arrivo", dati.kmArrivo);
+
+    y -= 10;
+
+    // ⛽ SPESE
+    page.drawText("CARBURANTE / SPESE", {
+      x: 50,
+      y: y,
+      size: 13,
+      font: bold
+    });
+    y -= 20;
+
+    riga("Buono", dati.buono);
+    riga("Benzina", dati.benzina);
+    riga("Gasolio", dati.gasolio);
+    riga("Manutenzione", dati.manutenzione);
+    riga("Lavaggi", dati.lavaggi);
+
+    // ✅ SALVA PDF
+    const pdfBytes = await pdfDoc.save();
+
+    // ✅ PRENDE PATH FIREBASE
+    const path = getStoragePathFromUrl(currentReport.pdf);
+    const storageRef = firebase.storage().ref(path);
+
+    // ✅ SOVRASCRIVE FILE
+    await storageRef.put(new Blob([pdfBytes], { type: "application/pdf" }));
+
+    // ✅ PRENDE NUOVO URL
+    const newUrl = await storageRef.getDownloadURL();
+
+    // ✅ AGGIORNA DB (anti-cache)
+    await db.collection("reports").doc(currentReport.id).update({
+      pdf: newUrl + "?v=" + Date.now()
+    });
+
+    alert("PDF aggiornato correttamente ✅");
+
+  } catch(err){
+    console.error("Errore PDF:", err);
+    alert("Errore modifica PDF: " + err.message);
+  }
+}
+function apriModificaReport(id){
+  const r = reportsCache.find(x => x.id === id);
+  if(!r) return alert("Report non trovato");
+
+  document.getElementById("reportId").value = id;
+
+  document.getElementById("editDistretto").value = r.distretto || "";
+  document.getElementById("editComparto").value = r.comparto || "";
+  document.getElementById("editTipoVeicolo").value = r.tipoVeicolo || "";
+  document.getElementById("editTarga").value = r.targa || "";
+  document.getElementById("editKm").value = r.kmGiornalieri || "";
+  document.getElementById("editRifornimentoKm").value = r.rifornimentoKm || "";
+  document.getElementById("editLitri").value = r.quantitaLitri || "";
+  document.getElementById("editEuro").value = r.importoeuro || "";
+  document.getElementById("editProssimo").value = r.prossimoRifornimento || "";
+
+  document.getElementById("modalReport").style.display = "block";
+}
+async function salvaCampi(){
+
+  const id = document.getElementById("reportId").value;
+
+  try{
+    await db.collection("reports").doc(id).update({
+
+      distretto: Number(document.getElementById("editDistretto").value),
+      comparto: document.getElementById("editComparto").value,
+      tipoVeicolo: document.getElementById("editTipoVeicolo").value,
+      targa: document.getElementById("editTarga").value.toUpperCase(),
+
+      kmGiornalieri: Number(document.getElementById("editKm").value),
+      rifornimentoKm: Number(document.getElementById("editRifornimentoKm").value),
+      quantitaLitri: Number(document.getElementById("editLitri").value),
+      importoeuro: Number(document.getElementById("editEuro").value),
+
+      prossimoRifornimento: document.getElementById("editProssimo").value
+
+    });
+
+    alert("Campi aggiornati ✅");
+    chiudiModalReport();
+
+  }catch(err){
+    console.error(err);
+    alert("Errore aggiornamento");
+  }
+}
+function chiudiModalReport(){
+  document.getElementById("modalReport").style.display = "none";
 }
 
 function reloadAll(){ loadReports(); loadVeicoli(); loadRichieste(); }
