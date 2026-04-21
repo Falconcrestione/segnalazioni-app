@@ -9,17 +9,17 @@ const WEBAPP_URL =
 // UTENTI CON DISTRICT
 const USERS = [
   { username: "superuser", password: "superpass", district: "ALL" },
-  { username: "user1", password: "pass1", district: "DIST1" },
-  { username: "user2", password: "pass2", district: "DIST2" },
-  { username: "user3", password: "pass3", district: "DIST3" },
-  { username: "user4", password: "pass4", district: "DIST4" },
-  { username: "user5", password: "pass5", district: "DIST5" },
-  { username: "user6", password: "pass6", district: "DIST6" },
-  { username: "user7", password: "pass7", district: "DIST7" },
-  { username: "user8", password: "pass8", district: "DIST8" },
-  { username: "user9", password: "pass9", district: "DIST9" },
-  { username: "user10", password: "pass10", district: "DIST10" },
-  { username: "user11", password: "pass11", district: "DIST11" },
+  { username: "user1", password: "pass1@469CV", district: "DIST1" },
+  { username: "user2", password: "pass2@480PL", district: "DIST2" },
+  { username: "user3", password: "pass3@896ACR", district: "DIST3" },
+  { username: "user4", password: "pass4@486RGL", district: "DIST4" },
+  { username: "user5", password: "pass5@937SGF", district: "DIST5" },
+  { username: "user6", password: "pass6@729CRT", district: "DIST6" },
+  { username: "user7", password: "pass7@370CTZ", district: "DIST7" },
+  { username: "user8", password: "pass8@394VVZ", district: "DIST8" },
+  { username: "user9", password: "pass9@561CTN", district: "DIST9" },
+  { username: "user10", password: "pass10@259BVL", district: "DIST10" },
+  { username: "user11", password: "pass11@368RCC", district: "DIST11" },
 ];
 
 export default function MapPage() {
