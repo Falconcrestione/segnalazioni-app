@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState, useEffect } from "react";
 import { db, storage } from "../lib/firebase";
 import {
@@ -215,6 +217,10 @@ setImportoEuro("")
   };
 
   return (
+    <div>
+      <Link href="/">
+        <button style={btn}>🚜 TORNA A HOME</button>
+      </Link>
     <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-5">
         <h2 className="text-xl font-bold text-center text-gray-800">
@@ -326,5 +332,18 @@ setImportoEuro("")
         </button>
       </div>
     </div>
+    </div>
   );
 }
+
+
+      const btn = {
+  padding: "1rem 2rem",
+  backgroundColor: "#0070f3",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  fontSize: "1.1rem",
+  fontWeight: 700,
+  cursor: "pointer",
+};

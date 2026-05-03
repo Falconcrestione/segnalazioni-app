@@ -1,5 +1,5 @@
 "use client";
-
+import Link from "next/link";
 import { useState } from "react";
 import { db } from "../../lib/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
@@ -59,6 +59,10 @@ export default function RichiediVeicolo() {
   };
 
   return (
+    <div>
+       <Link href="/">
+        <button style={btn}>🚜 TORNA A HOME</button>
+      </Link>
     <div style={container}>
       <h2 style={{ textAlign: "center" }}>🚗 Richiesta Veicolo</h2>
 
@@ -122,6 +126,7 @@ export default function RichiediVeicolo() {
         }
       `}</style>
     </div>
+    </div>
   );
 }
 
@@ -134,4 +139,14 @@ const container: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "10px",
+};
+    const btn = {
+  padding: "1rem 2rem",
+  backgroundColor: "#0070f3",
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  fontSize: "1.1rem",
+  fontWeight: 700,
+  cursor: "pointer",
 };

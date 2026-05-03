@@ -484,41 +484,59 @@ function loadRichieste() {
   if (!accessGranted) return;
 
   const body = document.getElementById("richiesteBody");
-  body.innerHTML = "";
+
+  // ❌ NON svuotare qui (lo fa già il listener)
+  
   markersRichieste.clearLayers();
 
   // ✅ chiude listener precedente (ANTI DUPLICATI)
-  if (richiesteAutoListener) richiesteAutoListener();
+  if (richiesteAutoListener) {
+    richiesteAutoListener();
+  }
 
   richiesteAutoListener = db.collection("richieste").onSnapshot(async snap => {
+
     body.innerHTML = "";
     markersRichieste.clearLayers();
 
-    // carica veicoli UNA VOLTA
     const veicoliSnap = await db.collection("veicoli").get();
-    const veicoliLiberi = veicoliSnap.docs
-      .map(vdoc => {
-        const v = vdoc.data();
-        return v.stato === "libero" ? { id: vdoc.id, ...v } : null;
-      })
-      .filter(Boolean);
+    const veicoli = veicoliSnap.docs.map(vdoc => ({
+      id: vdoc.id,
+      ...vdoc.data()
+    }));
 
-    snap.forEach(doc => {
+    for (const doc of snap.docs) {
+
       const r = doc.data();
 
-      if (typeof r.distretto !== "number") return;
-      if (distrettoAttivo() !== "ALL" && r.distretto !== distrettoAttivo()) return;
+      if (typeof r.distretto !== "number") continue;
+      if (distrettoAttivo() !== "ALL" && r.distretto !== distrettoAttivo()) continue;
 
       let azioni = "";
 
       if (r.status === "in attesa") {
-        const options = veicoliLiberi
+
+        const occupati = await getVeicoliOccupatiInData(
+          r.dataMissione.toDate()
+        );
+
+        const options = veicoli
           .filter(v => v.distretto === r.distretto)
-          .map(v =>
-            `<option value="${v.id}|${v.targa}|${v.modello}">
-              ${v.modello} – ${v.targa}
-            </option>`
-          )
+          .map(v => {
+
+            const isOccupato = occupati.includes(v.id);
+
+            return `
+              <option 
+                value="${v.id}|${v.targa}|${v.modello}"
+                ${isOccupato ? "disabled" : ""}
+                style="${isOccupato ? "color:red;font-weight:bold;" : ""}"
+              >
+                ${isOccupato ? "❌ OCCUPATO - " : ""}
+                ${v.modello} – ${v.targa}
+              </option>
+            `;
+          })
           .join("");
 
         azioni = `
@@ -526,10 +544,15 @@ function loadRichieste() {
             <option value="">Seleziona veicolo</option>
             ${options}
           </select>
-          <button class="btn-approve" onclick="assegnaVeicolo('${doc.id}','${r.email}')">Assegna</button>
-          <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">NO</button>
+          <button class="btn-approve" onclick="assegnaVeicolo('${doc.id}','${r.email}')">
+            Assegna
+          </button>
+          <button class="btn-reject" onclick="rifiutaRichiesta('${doc.id}')">
+            NO
+          </button>
         `;
-      } 
+      }
+
       else if (r.status === "approvata") {
         azioni = `
           <button class="btn-approve"
@@ -542,28 +565,29 @@ function loadRichieste() {
         ? r.dataMissione.toDate().toLocaleDateString("it-IT")
         : "-";
 
-     body.innerHTML += `
-  <tr>
-    <td>${r.nome}</td>
-    <td>${r.email}</td>
-    <td>${dataMissione}</td>
-    <td>${r.missione}</td>
-    <td>${r.veicoloTarga || r.veicolo}</td>
-    <td>${r.distretto}</td>
-    <td>${r.status}</td>
-    <td>
-      ${azioni}
-      <br>
-      <button class="btn-reject"
-        onclick="eliminaRichiesta('${doc.id}','${r.veicoloId || ""}')">
-        🗑 Elimina
-      </button>
-    </td>
-  </tr>
-`;
+      body.innerHTML += `
+        <tr>
+          <td>${r.nome}</td>
+          <td>${r.email}</td>
+          <td>${dataMissione}</td>
+          <td>${r.missione}</td>
+          <td>${r.veicoloTarga || r.veicolo}</td>
+          <td>${r.distretto}</td>
+          <td>${r.status}</td>
+          <td>
+            ${azioni}
+            <br>
+            <button class="btn-reject"
+              onclick="eliminaRichiesta('${doc.id}','${r.veicoloId || ""}')">
+              🗑 Elimina
+            </button>
+          </td>
+        </tr>
+      `;
 
-
+      // 📍 MAPPA
       if (r.status === "approvata" && r.latitudine && r.longitudine) {
+
         const marker = L.marker([r.latitudine, r.longitudine], {
           icon: L.icon({
             iconUrl: "https://cdn-icons-png.flaticon.com/512/190/190411.png",
@@ -582,7 +606,7 @@ function loadRichieste() {
 
         markersRichieste.addLayer(marker);
       }
-    });
+    }
   });
 }
 
@@ -590,6 +614,18 @@ async function assegnaVeicolo(richiestaId,emailDestinatario){
   const sel=document.getElementById(`veicolo_${richiestaId}`);
   if(!sel||!sel.value) return alert("Seleziona un veicolo");
   const [veicoloId, targa, modello]=sel.value.split("|");
+  const richiestaDoc = await db.collection("richieste").doc(richiestaId).get();
+const richiesta = richiestaDoc.data();
+
+const occupato = await veicoloOccupatoInData(
+  veicoloId,
+  richiesta.dataMissione.toDate()
+);
+
+if (occupato) {
+  alert("❌ Veicolo già assegnato per questo giorno");
+  return;
+}
   if(!navigator.geolocation) { alert("Geolocalizzazione non supportata"); return; }
   navigator.geolocation.getCurrentPosition(async pos=>{
     const lat=pos.coords.latitude;
@@ -611,13 +647,25 @@ async function rifiutaRichiesta(richiestaId){
 
 async function completaMissione(richiestaId,veicoloId){
   try{
-    await db.collection('veicoli').doc(veicoloId).update({stato:'libero'});
-    await db.collection('richieste').doc(richiestaId).update({status:'completata'});
-    reloadAll();
-    alert("Veicolo liberato e missione completata!");
-  } catch(err){ console.error(err); alert("Errore completamento missione"); }
+
+    await db.collection('richieste').doc(richiestaId).update({
+      status:'completata'
+    });
+    if (veicoloId) {
+  await aggiornaStatoVeicolo(veicoloId);
 }
 
+
+    // ❌ NON aggiornare veicoli
+
+    reloadAll();
+    alert("Missione completata!");
+
+  } catch(err){
+    console.error(err);
+    alert("Errore completamento missione");
+  }
+}
 async function inviaMail(emailDestinatario,veicoloTarga){
   try{
     const params={to_email:emailDestinatario,veicolo:veicoloTarga,from_name:"Dashboard Veicoli"};
@@ -722,6 +770,10 @@ async function eliminaRichiesta(richiestaId, veicoloId){
     }
 
     await db.collection("richieste").doc(richiestaId).delete();
+    if (veicoloId) {
+  await aggiornaStatoVeicolo(veicoloId);
+}
+
 
     alert("Richiesta eliminata correttamente");
 
@@ -828,39 +880,137 @@ function exportReportsExcel() {
     return;
   }
 
-  // Filtra i report visibili secondo distretto e modalità
+  // 🔹 DISTRETTO + MODALITÀ
   const active = distrettoAttivo();
-  let filtered = reportsMode === "recent" ? reportsCache.slice(-20) : reportsCache;
+  let filtered = reportsMode === "recent"
+    ? reportsCache.slice(-20)
+    : reportsCache;
+
   filtered = filtered.filter(d => {
     if (!d.distretto) return false;
-    const dNum = typeof d.distretto === "number" ? d.distretto : Number(d.distretto.replace("Distretto ", ""));
+
+    const dNum = typeof d.distretto === "number"
+      ? d.distretto
+      : Number(d.distretto.replace("Distretto ", ""));
+
     return active === "ALL" || dNum === active;
   });
 
-  // Prepara i dati da esportare
-  const exportData = filtered.map(d => ({
-    "Data / Ora": d.createdAt ? d.createdAt.toDate().toLocaleString("it-IT") : "-",
-    "Distretto": d.distretto,
-    "Comparto": d.comparto ?? "-",
-    "Tipo Veicolo": d.tipoVeicolo ?? "-",
-    "Targa": d.targa ?? "-",
-    "KM Giornalieri": d.kmGiornalieri ?? "-",
-    "Rifornimento a KM": d.rifornimentoKm ?? "-",
-    "Quantità (L)": d.quantitaLitri ?? "-",
-    "Importo (€)": d.importoeuro ?? "-",
-    "Prossimo Rifornimento Stimato": d.prossimoRifornimento ?? "-",
-    "PDF": d.pdf ?? "-",
-    "Foto": d.jpg ?? "-"
-  }));
+  // 🔍 FILTRO TARGA
+  const q = document.getElementById("searchTarga").value.toUpperCase();
+  if (q) {
+    filtered = filtered.filter(d =>
+      d.targa && d.targa.toUpperCase().includes(q)
+    );
+  }
 
-  // Crea il foglio Excel
+  // 📅 FILTRO DATE
+  const from = document.getElementById("searchFromDate").value;
+  const to = document.getElementById("searchToDate").value;
+
+  if (from) {
+    const fromDate = new Date(from);
+    filtered = filtered.filter(d =>
+      d.createdAt && d.createdAt.toDate() >= fromDate
+    );
+  }
+
+  if (to) {
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+    filtered = filtered.filter(d =>
+      d.createdAt && d.createdAt.toDate() <= toDate
+    );
+  }
+
+  if (filtered.length === 0) {
+    alert("Nessun dato dopo i filtri");
+    return;
+  }
+
+  // 🔥 CALCOLO TOTALI
+  let totaleKm = 0;
+  let totaleEuro = 0;
+
+  const exportData = filtered.map(d => {
+
+    if (d.kmGiornalieri) totaleKm += Number(d.kmGiornalieri);
+    if (d.importoeuro) totaleEuro += Number(d.importoeuro);
+
+    return {
+      "Data / Ora": d.createdAt
+        ? d.createdAt.toDate().toLocaleString("it-IT")
+        : "-",
+
+      "Distretto": d.distretto ?? "-",
+      "Comparto": d.comparto ?? "-",
+      "Tipo Veicolo": d.tipoVeicolo ?? "-",
+      "Targa": d.targa ?? "-",
+
+      "KM Giornalieri": d.kmGiornalieri ?? "-",
+      "Rifornimento a KM": d.rifornimentoKm ?? "-",
+      "Quantità (L)": d.quantitaLitri ?? "-",
+
+      "Importo (€)": d.importoeuro ?? "-",
+
+      "Prossimo Rifornimento Stimato": d.prossimoRifornimento ?? "-",
+
+      "PDF": d.pdf ?? "-",
+      "Foto": d.jpg ?? "-"
+    };
+  });
+
+  // ➕ RIGA FINALE TOTALE
+  exportData.push({
+    "Data / Ora": "",
+    "Distretto": "",
+    "Comparto": "",
+    "Tipo Veicolo": "",
+    "Targa": "TOTALE",
+
+    "KM Giornalieri": totaleKm,
+    "Rifornimento a KM": "",
+    "Quantità (L)": "",
+
+    "Importo (€)": totaleEuro,
+
+    "Prossimo Rifornimento Stimato": "",
+    "PDF": "",
+    "Foto": ""
+  });
+
+  // 📄 CREA EXCEL
   const ws = XLSX.utils.json_to_sheet(exportData);
+
+  // 👉 (opzionale) larghezza colonne
+  ws['!cols'] = [
+    { wch: 20 },
+    { wch: 10 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 12 },
+    { wch: 15 },
+    { wch: 18 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 25 },
+    { wch: 30 },
+    { wch: 30 }
+  ];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Reports");
 
-  // Salva il file
-  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-  saveAs(new Blob([wbout], { type: "application/octet-stream" }), `Reports_${Date.now()}.xlsx`);
+  // 💾 DOWNLOAD
+  const wbout = XLSX.write(wb, {
+    bookType: "xlsx",
+    type: "array"
+  });
+
+  saveAs(
+    new Blob([wbout], { type: "application/octet-stream" }),
+    `Reports_${new Date().toISOString().slice(0,10)}.xlsx`
+  );
 }
 function apriModifica(report){
   currentReport = report;
@@ -1063,6 +1213,82 @@ async function salvaCampi(){
 function chiudiModalReport(){
   document.getElementById("modalReport").style.display = "none";
 }
+async function veicoloOccupatoInData(veicoloId, dataMissione) {
+
+  const start = new Date(dataMissione);
+  start.setHours(0,0,0,0);
+
+  const end = new Date(dataMissione);
+  end.setHours(23,59,59,999);
+
+  const snap = await db.collection("richieste")
+    .where("veicoloId", "==", veicoloId)
+    .where("status", "==", "approvata")
+    .get();
+
+  // controllo lato JS (semplice e compatibile Firebase)
+  for (const doc of snap.docs) {
+    const r = doc.data();
+    if (!r.dataMissione) continue;
+
+    const d = r.dataMissione.toDate();
+
+   if (
+  r.veicoloId === veicoloId &&
+  r.status === "approvata" &&
+  d >= start &&
+  d <= end
+) {
+  return true;
+}
+  }
+
+  return false; // LIBERO
+}
+async function getVeicoliOccupatiInData(dataMissione) {
+  const start = new Date(dataMissione);
+  start.setHours(0,0,0,0);
+
+  const end = new Date(dataMissione);
+  end.setHours(23,59,59,999);
+
+  const snap = await db.collection("richieste")
+    .where("status", "==", "approvata")
+    .get();
+
+  const occupati = [];
+
+  snap.forEach(doc => {
+    const r = doc.data();
+    if (!r.veicoloId || !r.dataMissione) return;
+
+    const d = r.dataMissione.toDate();
+
+    if (d >= start && d <= end) {
+      occupati.push(r.veicoloId);
+    }
+  });
+
+  return occupati;
+}
+async function aggiornaStatoVeicolo(veicoloId) {
+
+  const snap = await db.collection("richieste")
+    .where("veicoloId", "==", veicoloId)
+    .where("status", "in", ["in attesa", "approvata"])
+    .get();
+
+  if (snap.empty) {
+    await db.collection("veicoli").doc(veicoloId).update({
+      stato: "libero"
+    });
+  } else {
+    await db.collection("veicoli").doc(veicoloId).update({
+      stato: "occupato"
+    });
+  }
+}
+
 
 function reloadAll(){ loadReports(); loadVeicoli(); loadRichieste(); }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }

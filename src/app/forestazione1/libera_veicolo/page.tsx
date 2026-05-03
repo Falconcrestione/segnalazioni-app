@@ -132,17 +132,75 @@ export default function Sorveglianza() {
         createdAt: Timestamp.now(),
       });
 
-      // --- LIBERO IL VEICOLO ---
-      try {
-        const veicoloQuery = query(collection(db, "veicoli"), where("targa", "==", targa));
-        const veicoloSnap = await getDocs(veicoloQuery);
+      // 🔎 1. Trova richiesta attiva di oggi
+const start = new Date();
+start.setHours(0,0,0,0);
 
-        if (!veicoloSnap.empty) {
-          await updateDoc(veicoloSnap.docs[0].ref, { stato: "libero" });
-        }
-      } catch (err) {
-        console.error("Errore liberazione veicolo:", err);
-      }
+const end = new Date();
+end.setHours(23,59,59,999);
+
+const richiesteSnap = await getDocs(
+  query(
+    collection(db, "richieste"),
+    where("veicoloTarga", "==", targa),
+    where("status", "==", "approvata")
+  )
+);
+
+let veicoloId = null;
+
+for (const docSnap of richiesteSnap.docs) {
+  const r = docSnap.data();
+
+  if (!r.dataMissione) continue;
+
+  const d = r.dataMissione.toDate();
+
+  if (d >= start && d <= end) {
+    // ✅ missione di oggi trovata
+    await updateDoc(docSnap.ref, {
+      status: "completata"
+    });
+
+    veicoloId = r.veicoloId;
+    break;
+  }
+}
+// 🔄 2. aggiorna stato veicolo automaticamente
+if (veicoloId) {
+
+  const snap = await getDocs(
+    query(
+      collection(db, "richieste"),
+      where("veicoloId", "==", veicoloId),
+      where("status", "in", ["in attesa", "approvata"])
+    )
+  );
+
+  if (snap.empty) {
+    // 🟢 nessuna missione → libero
+    const veicoloQuery = await getDocs(
+      query(collection(db, "veicoli"), where("targa", "==", targa))
+    );
+
+    if (!veicoloQuery.empty) {
+      await updateDoc(veicoloQuery.docs[0].ref, {
+        stato: "libero"
+      });
+    }
+  } else {
+    // 🔴 ci sono altre missioni
+    const veicoloQuery = await getDocs(
+      query(collection(db, "veicoli"), where("targa", "==", targa))
+    );
+
+    if (!veicoloQuery.empty) {
+      await updateDoc(veicoloQuery.docs[0].ref, {
+        stato: "occupato"
+      });
+    }
+  }
+}
 
       alert("Report inviato e veicolo liberato");
 
