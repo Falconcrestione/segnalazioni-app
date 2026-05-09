@@ -64,7 +64,51 @@ const[importoeuro, setImportoEuro] = useState("");
       () => alert("Impossibile ottenere la posizione")
     );
   }, []);
+  useEffect(() => {
+  const savedTarga = localStorage.getItem("ultimaTarga");
 
+  if (savedTarga) {
+    setTarga(savedTarga);
+
+    // opzionale: aggiorna anche il PDF form
+    setPdfFormData(prev => ({
+      ...prev,
+      targa: savedTarga,
+    }));
+  }
+}, []);
+useEffect(() => {
+  const savedComparto = localStorage.getItem("ultimoComparto");
+
+  if (savedComparto) {
+    setComparto(savedComparto);
+  }
+}, []);
+useEffect(() => {
+  const savedTipoVeicolo = localStorage.getItem("ultimoTipoVeicolo");
+
+  if (savedTipoVeicolo) {
+    setTipoVeicolo(savedTipoVeicolo);
+
+    setPdfFormData(prev => ({
+      ...prev,
+      veicolo: savedTipoVeicolo,
+    }));
+  }
+}, []);
+useEffect(() => {
+  const ultimoKmArrivo = localStorage.getItem("ultimoKmArrivo");
+
+  if (ultimoKmArrivo) {
+    setKmPartenza(ultimoKmArrivo);
+
+    // aggiorna anche PDF
+    setPdfFormData(prev => ({
+      ...prev,
+      kmPartenza: ultimoKmArrivo,
+    }));
+  }
+}, []);
   const handlePdfFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPdfFormData(prev => ({ ...prev, [name]: value }));
@@ -179,13 +223,14 @@ quantitaLitri: quantitaLitri ? Number(quantitaLitri) : null,
       }
 
       alert("Report inviato e veicolo liberato");
+      localStorage.setItem("ultimoKmArrivo", kmArrivo);
 
       // Reset stati
       setDistretto("");
       setComparto("");
       setTipoVeicolo("");
       setTarga("");
-      setKmPartenza("");
+      //setKmPartenza("");
       setRifornimentoKm("");
 setQuantitaLitri("");
 setImportoEuro("")
@@ -244,17 +289,39 @@ setImportoEuro("")
             <div className="bg-white p-6 rounded-lg w-full max-w-xl space-y-3 overflow-auto max-h-[90vh]">
               <h3 className="text-lg font-bold text-center">Compila Report</h3>
 
-              {Object.entries(pdfFormData).map(([key, value]) => (
-                <input
-                  key={key}
-                  name={key}
-                  value={value}
-                  onChange={handlePdfFormChange}
-                  placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-                  className="input w-full"
-                  type={key.includes("km") || key === "benzina" || key === "gasolio" ? "number" : "text"}
-                />
-              ))}
+            {Object.entries(pdfFormData).map(([key, value]) => (
+  <div key={key} className="flex flex-col">
+    
+    {(key === "oraPartenza" || key === "oraArrivo") && (
+      <label className="text-sm font-semibold text-gray-700 mb-1">
+        {key === "oraPartenza" ? "Ora Partenza" : "Ora Arrivo"}
+      </label>
+    )}
+
+    {key === "data" && (
+      <label className="text-sm font-semibold text-gray-700 mb-1">
+        Data
+      </label>
+    )}
+
+    <input
+      name={key}
+      value={value}
+      onChange={handlePdfFormChange}
+      placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
+      className="input w-full"
+      type={
+        key === "data"
+          ? "date"
+          : key.includes("km") || key === "benzina" || key === "gasolio"
+          ? "number"
+          : key.includes("ora")
+          ? "time"
+          : "text"
+      }
+    />
+  </div>
+))}
 
               <div className="flex justify-between mt-4">
                 <button
@@ -291,13 +358,92 @@ setImportoEuro("")
             ))}
           </select>
 
-          <input className="input" placeholder="Comparto" value={comparto} onChange={e => setComparto(e.target.value)} />
-          <input className="input" placeholder="Tipo Veicolo" value={tipoVeicolo} onChange={e => setTipoVeicolo(e.target.value)} />
-          <input className="input" placeholder="Targa" value={targa} onChange={e => setTarga(e.target.value)} />
+          <input
+  className="input"
+  placeholder="Comparto"
+  value={comparto}
+  onChange={e => {
+    const value = e.target.value.toUpperCase();
+
+    setComparto(value);
+
+    // salva nel browser
+    localStorage.setItem("ultimoComparto", value);
+  }}
+/>
+         <input
+  className="input"
+  placeholder="Tipo Veicolo"
+  value={tipoVeicolo}
+  onChange={e => {
+    const value = e.target.value.toUpperCase();
+
+    setTipoVeicolo(value);
+
+    localStorage.setItem("ultimoTipoVeicolo", value);
+
+    // sincronizzo con PDF (campo veicolo)
+    setPdfFormData(prev => ({
+      ...prev,
+      veicolo: value,
+    }));
+  }}
+/>
+         <input
+  className="input"
+  placeholder="Targa"
+  value={targa}
+  onChange={e => {
+    const value = e.target.value.toUpperCase();
+
+    setTarga(value);
+
+    // salva nel browser
+    localStorage.setItem("ultimaTarga", value);
+
+    // aggiorna anche il PDF
+    setPdfFormData(prev => ({
+      ...prev,
+      targa: value,
+    }));
+  }}
+/>
 
           <div className="grid grid-cols-2 gap-3">
-            <input className="input" type="number" placeholder="KM Partenza" value={kmPartenza} onChange={e => setKmPartenza(e.target.value)} />
-            <input className="input" type="number" placeholder="KM Arrivo" value={kmArrivo} onChange={e => setKmArrivo(e.target.value)} />
+           <input
+  className="input"
+  type="number"
+  placeholder="KM Partenza"
+  value={kmPartenza}
+  onChange={e => {
+    const value = e.target.value;
+
+    setKmPartenza(value);
+
+    // sincronizza PDF
+    setPdfFormData(prev => ({
+      ...prev,
+      kmPartenza: value,
+    }));
+  }}
+/>
+           <input
+  className="input"
+  type="number"
+  placeholder="KM Arrivo"
+  value={kmArrivo}
+  onChange={e => {
+    const value = e.target.value;
+
+    setKmArrivo(value);
+
+    // sincronizza PDF
+    setPdfFormData(prev => ({
+      ...prev,
+      kmArrivo: value,
+    }));
+  }}
+/>
           </div>
           <div className="grid grid-cols-2 gap-3">
   <input className="input" type="number" placeholder="Rifornimento a KM"
