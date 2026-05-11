@@ -6,6 +6,70 @@ import "leaflet/dist/leaflet.css";
 const WEBAPP_URL =
   "https://script.google.com/macros/s/AKfycby3DopxNOazSQ_qpl5CMNe15xpQzUM6HxHxR-mXSMxrIclbuTyKZqhCxDhSyevMNmZL/exec";
 
+  const DEVICE_INFO:any = {
+
+  "GN962KW": {
+    team: "SQUDRA57"
+  },
+
+  "GN960KW": {
+    team: "SQUDRA56"
+  },
+
+  "GN972KW": {
+    team: "SQUADRA55"
+  },
+  
+   "GN978KW": {
+    team: "SQUADRA66"
+  },
+
+   "GN984KW": {
+    team: "SQUADRA68"
+  },
+
+   "GN730KX": {
+    team: "SQUADRA67"
+  },
+
+   "GN948KW": {
+    team: "SQUADRA60"
+  },
+
+   "GN955KW": {
+    team: "SQUADRA59"
+  },
+
+   "GN949KW": {
+    team: "SQUADRA61"
+  },
+
+   "GN942KW": {
+    team: "SQUADRA63"
+  },
+
+   "GN941KW": {
+    team: "SQUADRA62"
+  },
+
+   "GN995KW": {
+    team: "SQUADRA65"
+  },
+
+   "GN947KW": {
+    team: "SQUADRA64"
+  },
+
+   "GN683KW": {
+    team: "SQUADRA69"
+  },
+
+   "GN990KW": {
+    team: "SQUADRA70"
+  }
+
+};
+
 // UTENTI CON DISTRICT
 const USERS = [
   { username: "superuser", password: "superpass", district: "ALL" },
@@ -202,6 +266,8 @@ const bearingsRef = useRef<any>({});
       }
 
       const last = filteredPoints[filteredPoints.length-1];
+      const deviceInfo = DEVICE_INFO[device.toUpperCase()] || {};
+const teamCode = deviceInfo.team || "";
       const prev = filteredPoints[filteredPoints.length-2];
       const dist = haversine(
   Number(String(prev.lat).replace(",", ".")),
@@ -247,16 +313,21 @@ if (dist > 10) { // minimo 10 metri di movimento
         Number(String(last.lng).replace(",", "."))
       ], { icon })
         .addTo(mapRef.current)
-        .bindPopup(`${device} (${last.district})<br>${(total/1000).toFixed(2)} km`);
-
+        .bindPopup(`
+  <b>${device}</b><br>
+  Distretto: ${last.district}<br>
+  ${teamCode ? `Squadra: ${teamCode}<br>` : ""}
+  ${(total/1000).toFixed(2)} km
+`);
       layersRef.current.push(marker);
 
-      info.push({
-        name: device,
-        distance:(total/1000).toFixed(2),
-        color,
-        points: filteredPoints.length
-      });
+     info.push({
+  name: device,
+  distance:(total/1000).toFixed(2),
+  color,
+  points: filteredPoints.length,
+  teamCode
+});
     }
 
     setDevicesInfo(info);
@@ -341,6 +412,11 @@ if (dist > 10) { // minimo 10 metri di movimento
         {devicesInfo.map(d=>(
           <div key={d.name} style={{background:"#fff", padding:12, borderRadius:10, marginBottom:12, boxShadow:"0 4px 10px rgba(0,0,0,0.05)", borderLeft:`5px solid ${d.color}`}}>
             <div style={{fontWeight:700, marginBottom:5}}>{d.name}</div>
+            {d.teamCode && (
+  <div style={{fontSize:13,color:"#555"}}>
+    👥 {d.teamCode}
+  </div>
+)}
             <div style={{fontSize:13, color:"#555"}}>📍 {d.distance} km</div>
             <div style={{fontSize:13, color:"#555"}}>📊 {d.points} punti</div>
           </div>
