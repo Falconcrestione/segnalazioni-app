@@ -47,12 +47,43 @@ const[importoeuro, setImportoEuro] = useState("");
     percorso: "",
     kmPartenza: "",
     kmArrivo: "",
-    buono: "",
+    buono : "",
     benzina: "",
     gasolio: "",
     manutenzione: "",
     lavaggi: "",
   });
+const validatePdfForm = () => {
+  const requiredFields = [
+    "veicolo",
+    "targa",
+    "data",
+    "oraPartenza",
+    "oraArrivo",
+    "conducente",
+    "kmPartenza",
+    "kmArrivo",
+    "percorso",
+    "buono",
+    "benzina",
+    "gasolio",
+    "manutenzione",
+    "lavaggi",
+
+  ];
+
+  for (const field of requiredFields) {
+    const value = pdfFormData[field as keyof typeof pdfFormData];
+
+    if (!value || value.toString().trim() === "") {
+      alert(`⚠️ Campo obbligatorio Specificare: ${field} "Per i campi Buono,Manutenzione,Lavaggi, il cui dato non è disponibile inserire no, mentre per Benzina e Gasolio 0"`);
+      return false;
+    }
+  }
+
+  return true;
+};
+
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
@@ -172,6 +203,10 @@ if (kmGiornalieri < 0) return alert("KM arrivo non validi");
     setLoading(true);
 
     try {
+      if (!validatePdfForm()) {
+  setLoading(false);
+  return;
+}
       // Genero PDF lato client
       const pdfFile = await generatePdf();
 
@@ -246,7 +281,7 @@ setImportoEuro("")
         percorso: "",
         kmPartenza: "",
         kmArrivo: "",
-        buono: "",
+        buono : "",
         benzina: "",
         gasolio: "",
         manutenzione: "",
@@ -326,13 +361,16 @@ setImportoEuro("")
               <div className="flex justify-between mt-4">
                 <button
                   className="bg-gray-400 text-white py-2 px-4 rounded"
-                  onClick={() => setShowPdfForm(false)}
+                onClick={() => setShowPdfForm(false)}
                 >
                   ❌ Annulla
                 </button>
                 <button
                   className="bg-green-600 text-white py-2 px-4 rounded"
-                  onClick={() => setShowPdfForm(false)}
+                onClick={() => {
+  if (!validatePdfForm()) return;
+  setShowPdfForm(false);
+}}
                 >
                   💾 Salva
                 </button>
