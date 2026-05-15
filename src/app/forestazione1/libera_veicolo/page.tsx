@@ -16,7 +16,9 @@ export default function Sorveglianza() {
 
   const [kmPartenza, setKmPartenza] = useState("");
   const [kmArrivo, setKmArrivo] = useState("");
-
+  const [rifornimentoKm, setRifornimentoKm] = useState("");
+const [quantitaLitri, setQuantitaLitri] = useState("");
+const [importoeuro, setImportoEuro] = useState("");
   const [jpgFile, setJpgFile] = useState<File | null>(null);
 
   const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
@@ -39,23 +41,126 @@ export default function Sorveglianza() {
     manutenzione: "",
     lavaggi: "",
   });
+  useEffect(() => {
+
+  const savedTarga =
+    localStorage.getItem("ultimaTarga");
+
+  if (savedTarga) {
+
+    setTarga(savedTarga);
+
+    setPdfFormData(prev => ({
+      ...prev,
+      targa: savedTarga,
+    }));
+  }
+
+}, []);
+useEffect(() => {
+
+  const savedComparto =
+    localStorage.getItem("ultimoComparto");
+
+  if (savedComparto) {
+    setComparto(savedComparto);
+  }
+
+}, []);
+useEffect(() => {
+
+  const savedTipoVeicolo =
+    localStorage.getItem("ultimoTipoVeicolo");
+
+  if (savedTipoVeicolo) {
+
+    setTipoVeicolo(savedTipoVeicolo);
+
+    setPdfFormData(prev => ({
+      ...prev,
+      veicolo: savedTipoVeicolo,
+    }));
+  }
+
+}, []);
+useEffect(() => {
+
+  const ultimoKmArrivo =
+    localStorage.getItem("ultimoKmArrivo");
+
+  if (ultimoKmArrivo) {
+
+    setKmPartenza(ultimoKmArrivo);
+
+    setPdfFormData(prev => ({
+      ...prev,
+      kmPartenza: ultimoKmArrivo,
+    }));
+  }
+
+}, []);
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      pos =>
-        setLatLng({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        }),
-      () => alert("Impossibile ottenere la posizione")
-    );
-  }, []);
+  navigator.geolocation.getCurrentPosition(
+    pos =>
+      setLatLng({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      }),
+    () => alert("Impossibile ottenere la posizione")
+  );
+}, []);
 
-  const handlePdfFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setPdfFormData(prev => ({ ...prev, [name]: value }));
-  };
+const validatePdfForm = () => {
 
+  const requiredFields = [
+    "veicolo",
+    "targa",
+    "data",
+    "oraPartenza",
+    "oraArrivo",
+    "conducente",
+    "kmPartenza",
+    "kmArrivo",
+    "percorso",
+    "buono",
+    "benzina",
+    "gasolio",
+    "manutenzione",
+    "lavaggi",
+  ];
+
+  for (const field of requiredFields) {
+
+    const value =
+      pdfFormData[field as keyof typeof pdfFormData];
+
+    if (!value || value.toString().trim() === "") {
+
+      alert(
+        `⚠️ Campo obbligatorio: ${field}
+Per Buono, Manutenzione e Lavaggi inserire NO.
+Per Benzina e Gasolio inserire 0`
+      );
+
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const handlePdfFormChange = (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+
+  const { name, value } = e.target;
+
+  setPdfFormData(prev => ({
+    ...prev,
+    [name]: value
+  }));
+};
   const generatePdf = async (): Promise<File> => {
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([595, 842]);
@@ -89,15 +194,44 @@ export default function Sorveglianza() {
     if (!comparto || !tipoVeicolo || !targa) return alert("Compila tutti i campi");
     if (!latLng) return alert("Posizione non disponibile");
 
-    const kmGiornalieri = Number(kmArrivo) - Number(kmPartenza);
-    if (kmGiornalieri < 0) return alert("KM arrivo non validi");
+    const kmGiornalieri =
+  Number(kmArrivo) - Number(kmPartenza);
+
+let prossimoRifornimento = null;
+
+if (rifornimentoKm && quantitaLitri && kmArrivo) {
+
+  const kmPercorsiDalPieno =
+    Number(kmArrivo) - Number(rifornimentoKm);
+
+  if (kmPercorsiDalPieno > 0) {
+
+    const consumoMedio = 15; // km/litro
+
+    const autonomiaStimata =
+      consumoMedio * Number(quantitaLitri);
+
+    prossimoRifornimento = Math.round(
+      Number(rifornimentoKm) + autonomiaStimata
+    );
+  }
+}
+
+if (kmGiornalieri < 0)
+  return alert("KM arrivo non validi");
 
     setLoading(true);
 
     try {
-      // Genero PDF lato client
-      const pdfFile = await generatePdf();
 
+  if (!validatePdfForm()) {
+
+    setLoading(false);
+    return;
+  }
+
+  // Genero PDF lato client
+  const pdfFile = await generatePdf();
       const pdfRef = ref(
         storage,
         `reports/sorveglianza/distretto_${distretto}/${Date.now()}_${targa}.pdf`
@@ -116,16 +250,32 @@ export default function Sorveglianza() {
       }
 
       await addDoc(collection(db, "reports"), {
-        flusso: "sorveglianza",
-        distretto,
-        comparto,
-        tipoVeicolo,
-        targa,
-        kmPartenza: Number(kmPartenza),
-        kmArrivo: Number(kmArrivo),
-        kmGiornalieri,
-        pdf: pdfUrl,
-        jpg: jpgUrl,
+  flusso: "sorveglianza",
+  distretto,
+  comparto,
+  tipoVeicolo,
+  targa,
+
+  kmPartenza: Number(kmPartenza),
+  kmArrivo: Number(kmArrivo),
+  kmGiornalieri,
+
+  rifornimentoKm: rifornimentoKm
+    ? Number(rifornimentoKm)
+    : null,
+
+  quantitaLitri: quantitaLitri
+    ? Number(quantitaLitri)
+    : null,
+
+  importoeuro: importoeuro
+    ? Number(importoeuro)
+    : null,
+
+  prossimoRifornimento,
+
+  pdf: pdfUrl,
+  jpg: jpgUrl,
         latitudine: latLng.lat,
         longitudine: latLng.lng,
         validated: false,
@@ -203,6 +353,10 @@ if (veicoloId) {
 }
 
       alert("Report inviato e veicolo liberato");
+      localStorage.setItem(
+  "ultimoKmArrivo",
+  kmArrivo
+);
 
       // Reset
       setDistretto("");
@@ -211,6 +365,9 @@ if (veicoloId) {
       setTarga("");
       setKmPartenza("");
       setKmArrivo("");
+      setRifornimentoKm("");
+setQuantitaLitri("");
+setImportoEuro("");
       setJpgFile(null);
       setPdfFormData({
         veicolo: "",
@@ -261,12 +418,33 @@ if (veicoloId) {
                 onChange={handlePdfFormChange}
                 placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
                 style={input}
-                type={key.includes("km") || key === "benzina" || key === "gasolio" ? "number" : "text"}
+               type={
+  key === "data"
+    ? "date"
+    : key.includes("km") ||
+      key === "benzina" ||
+      key === "gasolio"
+    ? "number"
+    : key.includes("ora")
+    ? "time"
+    : "text"
+}
               />
             ))}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
               <button style={{ ...btn, background: "#aaa" }} onClick={() => setShowPdfForm(false)}>❌ Annulla</button>
-              <button style={{ ...btn, background: "#28a745" }} onClick={() => setShowPdfForm(false)}>💾 Salva</button>
+             <button
+  style={{ ...btn, background: "#28a745" }}
+  onClick={() => {
+
+    if (!validatePdfForm()) return;
+
+    setShowPdfForm(false);
+
+  }}
+>
+  💾 Salva
+</button>
             </div>
           </div>
         </div>
@@ -284,12 +462,98 @@ if (veicoloId) {
         ))}
       </select>
 
-      <input style={input} placeholder="Comparto" value={comparto} onChange={e => setComparto(e.target.value)} />
-      <input style={input} placeholder="Tipo Veicolo" value={tipoVeicolo} onChange={e => setTipoVeicolo(e.target.value)} />
-      <input style={input} placeholder="Targa" value={targa} onChange={e => setTarga(e.target.value)} />
+     <input
+  style={input}
+  placeholder="Comparto"
+  value={comparto}
+  onChange={e => {
+
+    const value = e.target.value.toUpperCase();
+
+    setComparto(value);
+
+    localStorage.setItem(
+      "ultimoComparto",
+      value
+    );
+
+  }}
+/>
+     <input
+  style={input}
+  placeholder="Tipo Veicolo"
+  value={tipoVeicolo}
+  onChange={e => {
+
+    const value =
+      e.target.value.toUpperCase();
+
+    setTipoVeicolo(value);
+
+    localStorage.setItem(
+      "ultimoTipoVeicolo",
+      value
+    );
+
+    // aggiorna PDF
+    setPdfFormData(prev => ({
+      ...prev,
+      veicolo: value,
+    }));
+
+  }}
+/>
+      <input
+  style={input}
+  placeholder="Targa"
+  value={targa}
+  onChange={e => {
+
+    const value = e.target.value.toUpperCase();
+
+    setTarga(value);
+
+    // salva nel browser
+    localStorage.setItem("ultimaTarga", value);
+
+  }}
+/>
 
       <input style={input} type="number" placeholder="KM Partenza" value={kmPartenza} onChange={e => setKmPartenza(e.target.value)} />
       <input style={input} type="number" placeholder="KM Arrivo" value={kmArrivo} onChange={e => setKmArrivo(e.target.value)} />
+      <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "10px"
+  }}
+>
+
+  <input
+    style={input}
+    type="number"
+    placeholder="Rifornimento a KM"
+    value={rifornimentoKm}
+    onChange={e => setRifornimentoKm(e.target.value)}
+  />
+
+  <input
+    style={input}
+    type="number"
+    placeholder="Quantità Litri"
+    value={quantitaLitri}
+    onChange={e => setQuantitaLitri(e.target.value)}
+  />
+
+  <input
+    style={input}
+    type="number"
+    placeholder="Importo Euro"
+    value={importoeuro}
+    onChange={e => setImportoEuro(e.target.value)}
+  />
+
+</div>
 
       <button onClick={handleSend} disabled={loading} style={btn}>
         {loading ? "Invio..." : "📤 Invia Report"}
