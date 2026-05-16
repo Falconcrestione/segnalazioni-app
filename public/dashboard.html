@@ -67,8 +67,14 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   </select>
 
   <input type="text" id="searchTarga" placeholder="Cerca per targa" oninput="cercaTarga()" />
-  <input type="date" id="searchFromDate" onchange="cercaPerData()" />
-<input type="date" id="searchToDate" onchange="cercaPerData()" />
+  <input type="date" id="searchFromDate" onchange="cercaTarga()" />
+<input type="date" id="searchToDate" onchange="cercaTarga()" />
+<select id="searchComparto" onchange="cercaTarga()">
+  <option value="">Tutti i comparti</option>
+  <option value="FORESTAZIONE">FORESTAZIONE</option>
+  <option value="SORVEGLIANZA">SORVEGLIANZA</option>
+  <option value="AIB">AIB</option>
+</select>
 <button onclick="resetFiltroData()">Reset</button>
 
 </div>
@@ -345,6 +351,25 @@ function cercaTarga() {
       r.createdAt && r.createdAt.toDate() <= toDate
     );
   }
+  // 🚓 FILTRO COMPARTO
+const comparto = document
+  .getElementById("searchComparto")
+  .value
+  .trim()
+  .toUpperCase();
+
+if(comparto){
+
+  filtered = filtered.filter(r =>
+
+    r.comparto &&
+
+    r.comparto
+      .toString()
+      .trim()
+      .toUpperCase() === comparto
+  );
+}
 
   renderReports(filtered);
 }
@@ -903,6 +928,25 @@ function exportReportsExcel() {
       d.targa && d.targa.toUpperCase().includes(q)
     );
   }
+  // 🚓 FILTRO COMPARTO
+const comparto = document
+  .getElementById("searchComparto")
+  .value
+  .trim()
+  .toUpperCase();
+
+if(comparto){
+
+  filtered = filtered.filter(d =>
+
+    d.comparto &&
+
+    d.comparto
+      .toString()
+      .trim()
+      .toUpperCase() === comparto
+  );
+}
 
   // 📅 FILTRO DATE
   const from = document.getElementById("searchFromDate").value;
@@ -931,6 +975,8 @@ function exportReportsExcel() {
   // 🔥 CALCOLO TOTALI
   let totaleKm = 0;
   let totaleEuro = 0;
+
+ 
 
   const exportData = filtered.map(d => {
 
@@ -978,10 +1024,11 @@ function exportReportsExcel() {
     "PDF": "",
     "Foto": ""
   });
+  
 
   // 📄 CREA EXCEL
   const ws = XLSX.utils.json_to_sheet(exportData);
-
+  
   // 👉 (opzionale) larghezza colonne
   ws['!cols'] = [
     { wch: 20 },
@@ -1000,6 +1047,7 @@ function exportReportsExcel() {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Reports");
+  
 
   // 💾 DOWNLOAD
   const wbout = XLSX.write(wb, {
