@@ -658,7 +658,11 @@ if (occupato) {
     try{
       await db.collection('richieste').doc(richiestaId).update({status:'approvata',veicoloId,veicoloTarga:targa,veicoloModello:modello,latitudine:lat,longitudine:lng,assegnatoAt:firebase.firestore.Timestamp.now()});
       await db.collection('veicoli').doc(veicoloId).update({stato:'occupato'});
-      inviaMail(emailDestinatario,targa);
+      inviaMail(
+  emailDestinatario,
+  targa,
+  richiesta.dataMissione.toDate()
+);
       reloadAll();
       alert("Veicolo assegnato correttamente");
     } catch(err){ console.error(err); alert("Errore assegnazione"); }
@@ -691,12 +695,38 @@ async function completaMissione(richiestaId,veicoloId){
     alert("Errore completamento missione");
   }
 }
-async function inviaMail(emailDestinatario,veicoloTarga){
+async function inviaMail(emailDestinatario, veicoloTarga, dataMissione){
+
   try{
-    const params={to_email:emailDestinatario,veicolo:veicoloTarga,from_name:"Dashboard Veicoli"};
-    await emailjs.send("service_w1or5ah","template_e2exsif",params);
-    console.log("Email inviata a "+emailDestinatario);
-  }catch(err){console.error("Errore invio email:",err);}
+
+    const dataFormattata = new Date(dataMissione)
+      .toLocaleDateString("it-IT");
+
+    const params = {
+
+      to_email: emailDestinatario,
+
+      veicolo: veicoloTarga,
+
+      data_missione: dataFormattata,
+
+      from_name: "Dashboard Veicoli"
+
+    };
+
+    await emailjs.send(
+      "service_w1or5ah",
+      "template_e2exsif",
+      params
+    );
+
+    console.log("Email inviata a " + emailDestinatario);
+
+  } catch(err){
+
+    console.error("Errore invio email:", err);
+
+  }
 }
 
 /* ================= VEICOLI ================= */
