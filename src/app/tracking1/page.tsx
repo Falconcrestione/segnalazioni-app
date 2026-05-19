@@ -66,7 +66,22 @@ const WEBAPP_URL =
 
    "GN990KW": {
     team: "SQUADRA70"
-  }
+  },
+   "GN945KW": {
+    team: "SQUADRA_CS17"
+  },
+   "GN958KW": {
+    team: "SQUADRA_CS25"
+  },
+   "GN993KW": {
+    team: "SQUADRA_CS22"
+  },
+   "GN980KW": {
+    team: "SQUADRA_CS20"
+  },
+   "GN968KW": {
+    team: "SQUADRA_CS19"
+  },
 
 };
 
