@@ -208,7 +208,11 @@ padding:20px;
 border-radius:10px;
 box-shadow:0 0 20px rgba(0,0,0,0.3);
 z-index:999;
-width:400px;
+width:90%;
+max-width:500px;
+max-height:90vh;
+overflow-y:auto;
+box-sizing:border-box;
 ">
 
 <h3>Modifica Campi Report</h3>
@@ -230,17 +234,7 @@ width:400px;
 <label>KM Giornalieri</label>
 <input type="number" id="editKm"><br><br>
 
-<label>Rifornimento KM</label>
-<input type="number" id="editRifornimentoKm"><br><br>
-
-<label>Quantità (L)</label>
-<input type="number" id="editLitri"><br><br>
-
-<label>Importo €</label>
-<input type="number" id="editEuro"><br><br>
-
-<label>Prossimo Rifornimento</label>
-<input type="text" id="editProssimo"><br><br>
+<div id="rifornimentiEditor"></div>
 
 <button onclick="salvaCampi()">💾 Salva</button>
 <button onclick="chiudiModalReport()">❌ Chiudi</button>
@@ -431,47 +425,107 @@ function renderReports(list) {
     const dataOra = d.createdAt?d.createdAt.toDate().toLocaleString("it-IT"):"-";
     if(d.kmGiornalieri) totaleKm+=Number(d.kmGiornalieri);
     if (d.importoeuro) totaleEuro += Number(d.importoeuro);
-  reportsBody.innerHTML+=`
-  <tr>
-    <td>${dataOra}</td>
-    <td>${d.distretto}</td>
-    <td>${d.comparto}</td>
-    <td>${d.tipoVeicolo}</td>
-    <td>${d.targa}</td>
-    <td>${d.kmGiornalieri ?? "-"}</td>
-<td>${d.rifornimentoKm ?? "-"}</td>
-<td>${d.quantitaLitri ?? "-"}</td>
-<td>${
-  d.importoeuro != null
-    ? new Intl.NumberFormat("it-IT", {
-        style: "currency",
-        currency: "EUR"
-      }).format(d.importoeuro)
-    : "-"
-}</td>
-<td>${d.prossimoRifornimento ?? "-"}</td>
-<td>${d.pdf?`<a href="${d.pdf}" target="_blank">PDF</a>`:"-"}</td>
-    <td>${d.jpg?`<a href="${d.jpg}" target="_blank">Foto</a>`:"-"}</td>
-    <td>
-  <button class="btn-reject" onclick="eliminaReport('${d.id}')">
-    🗑 Elimina
-  </button>
-</td>
+  reportsBody.innerHTML += `
+<tr>
+  <td>${dataOra}</td>
+  <td>${d.distretto}</td>
+  <td>${d.comparto}</td>
+  <td>${d.tipoVeicolo}</td>
+  <td>${d.targa}</td>
 
-<td>
-  <button onclick="apriModificaReport('${d.id}')">
-    🧾 Modifica Campi
-  </button>
+  <td>${d.kmGiornalieri ?? "-"}</td>
 
-  <br><br>
+  <td>
+    ${
+      d.rifornimenti
+        ? d.rifornimenti.map(r => r.km).join("<br>")
+        : (d.rifornimentoKm ?? "-")
+    }
+  </td>
 
-  <button class="btn-modifica" data-id="${d.id}">
-    📄 Modifica PDF
-  </button>
-</td>
-  </tr>
+  <td>
+    ${
+      d.rifornimenti
+        ? d.rifornimenti.map(r => r.litri).join("<br>")
+        : (d.quantitaLitri ?? "-")
+    }
+  </td>
+
+  <td>
+    ${
+      d.rifornimenti
+        ? d.rifornimenti.map(r =>
+            new Intl.NumberFormat("it-IT", {
+              style: "currency",
+              currency: "EUR"
+            }).format(Number(r.euro || 0))
+          ).join("<br>")
+        : (
+            d.importoeuro != null
+              ? new Intl.NumberFormat("it-IT", {
+                  style: "currency",
+                  currency: "EUR"
+                }).format(Number(d.importoeuro || 0))
+              : "-"
+          )
+    }
+  </td>
+
+  <td>
+    ${
+      d.rifornimenti
+        ? d.rifornimenti
+            .map(r => r.prossimoRifornimento ?? "-")
+            .join("<br>")
+        : (d.prossimoRifornimento ?? "-")
+    }
+  </td>
+
+  <td>
+    ${
+      d.pdf
+        ? `<a href="${d.pdf}" target="_blank">PDF</a>`
+        : "-"
+    }
+  </td>
+
+  <td>
+    ${
+      d.rifornimenti
+        ? d.rifornimenti
+            .map((r, i) =>
+              r.foto
+                ? `<a href="${r.foto}" target="_blank">Foto ${i + 1}</a>`
+                : ""
+            )
+            .join("<br>")
+        : (
+            d.jpg
+              ? `<a href="${d.jpg}" target="_blank">Foto</a>`
+              : "-"
+          )
+    }
+  </td>
+
+  <td>
+    <button class="btn-reject" onclick="eliminaReport('${d.id}')">
+      🗑 Elimina
+    </button>
+  </td>
+
+  <td>
+    <button onclick="apriModificaReport('${d.id}')">
+      🧾 Modifica Campi
+    </button>
+
+    <br><br>
+
+    <button class="btn-modifica" data-id="${d.id}">
+      📄 Modifica PDF
+    </button>
+  </td>
+</tr>
 `;
-
     if(d.latitudine && d.longitudine){
       const m=L.marker([d.latitudine,d.longitudine]);
       m.bindPopup(`<b>${d.targa}</b><br>${d.tipoVeicolo}`);
@@ -935,8 +989,8 @@ function exportReportsExcel() {
     return;
   }
 
-  // 🔹 DISTRETTO + MODALITÀ
   const active = distrettoAttivo();
+
   let filtered = reportsMode === "recent"
     ? reportsCache.slice(-20)
     : reportsCache;
@@ -951,34 +1005,23 @@ function exportReportsExcel() {
     return active === "ALL" || dNum === active;
   });
 
-  // 🔍 FILTRO TARGA
+  // filtri targa
   const q = document.getElementById("searchTarga").value.toUpperCase();
   if (q) {
     filtered = filtered.filter(d =>
       d.targa && d.targa.toUpperCase().includes(q)
     );
   }
-  // 🚓 FILTRO COMPARTO
-const comparto = document
-  .getElementById("searchComparto")
-  .value
-  .trim()
-  .toUpperCase();
 
-if(comparto){
+  // filtro comparto
+  const comparto = document.getElementById("searchComparto").value.trim().toUpperCase();
+  if (comparto) {
+    filtered = filtered.filter(d =>
+      d.comparto && d.comparto.toString().trim().toUpperCase() === comparto
+    );
+  }
 
-  filtered = filtered.filter(d =>
-
-    d.comparto &&
-
-    d.comparto
-      .toString()
-      .trim()
-      .toUpperCase() === comparto
-  );
-}
-
-  // 📅 FILTRO DATE
+  // filtro date
   const from = document.getElementById("searchFromDate").value;
   const to = document.getElementById("searchToDate").value;
 
@@ -1002,84 +1045,82 @@ if(comparto){
     return;
   }
 
-  // 🔥 CALCOLO TOTALI
   let totaleKm = 0;
   let totaleEuro = 0;
 
- 
+  const exportData = [];
 
-  const exportData = filtered.map(d => {
+  // 🔥 QUI LA PARTE IMPORTANTE: ESPLODI RIFORNIMENTI
+  filtered.forEach(d => {
 
-    if (d.kmGiornalieri) totaleKm += Number(d.kmGiornalieri);
-    if (d.importoeuro) totaleEuro += Number(d.importoeuro);
-
-    return {
+    const base = {
       "Data / Ora": d.createdAt
         ? d.createdAt.toDate().toLocaleString("it-IT")
         : "-",
-
       "Distretto": d.distretto ?? "-",
       "Comparto": d.comparto ?? "-",
       "Tipo Veicolo": d.tipoVeicolo ?? "-",
       "Targa": d.targa ?? "-",
-
       "KM Giornalieri": d.kmGiornalieri ?? "-",
-      "Rifornimento a KM": d.rifornimentoKm ?? "-",
-      "Quantità (L)": d.quantitaLitri ?? "-",
-
-      "Importo (€)": d.importoeuro ?? "-",
-
-      "Prossimo Rifornimento Stimato": d.prossimoRifornimento ?? "-",
-
       "PDF": d.pdf ?? "-",
       "Foto": d.jpg ?? "-"
     };
+
+    // 🔴 CASO 1: RIFORNIMENTI MULTIPLI
+    if (Array.isArray(d.rifornimenti) && d.rifornimenti.length > 0) {
+
+      d.rifornimenti.forEach(r => {
+
+        totaleKm += Number(d.kmGiornalieri || 0);
+        totaleEuro += Number(r.euro || 0);
+
+        exportData.push({
+          ...base,
+          "Rifornimento a KM": r.km ?? "-",
+          "Quantità (L)": r.litri ?? "-",
+          "Importo (€)": r.euro ?? "-",
+          "Prossimo Rifornimento Stimato": r.prossimoRifornimento ?? "-"
+        });
+      });
+
+    } 
+    // 🟡 CASO 2: VECCHIO FORMATO (COMPATIBILITÀ)
+    else {
+
+      totaleKm += Number(d.kmGiornalieri || 0);
+      totaleEuro += Number(d.importoeuro || 0);
+
+      exportData.push({
+        ...base,
+        "Rifornimento a KM": d.rifornimentoKm ?? "-",
+        "Quantità (L)": d.quantitaLitri ?? "-",
+        "Importo (€)": d.importoeuro ?? "-",
+        "Prossimo Rifornimento Stimato": d.prossimoRifornimento ?? "-"
+      });
+    }
   });
 
-  // ➕ RIGA FINALE TOTALE
+  // ➕ RIGA TOTALE FINALE
   exportData.push({
     "Data / Ora": "",
     "Distretto": "",
     "Comparto": "",
     "Tipo Veicolo": "",
     "Targa": "TOTALE",
-
     "KM Giornalieri": totaleKm,
     "Rifornimento a KM": "",
     "Quantità (L)": "",
-
     "Importo (€)": totaleEuro,
-
     "Prossimo Rifornimento Stimato": "",
     "PDF": "",
     "Foto": ""
   });
-  
 
-  // 📄 CREA EXCEL
   const ws = XLSX.utils.json_to_sheet(exportData);
-  
-  // 👉 (opzionale) larghezza colonne
-  ws['!cols'] = [
-    { wch: 20 },
-    { wch: 10 },
-    { wch: 15 },
-    { wch: 15 },
-    { wch: 12 },
-    { wch: 15 },
-    { wch: 18 },
-    { wch: 15 },
-    { wch: 15 },
-    { wch: 25 },
-    { wch: 30 },
-    { wch: 30 }
-  ];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Reports");
-  
 
-  // 💾 DOWNLOAD
   const wbout = XLSX.write(wb, {
     bookType: "xlsx",
     type: "array"
@@ -1252,10 +1293,56 @@ function apriModificaReport(id){
   document.getElementById("editTipoVeicolo").value = r.tipoVeicolo || "";
   document.getElementById("editTarga").value = r.targa || "";
   document.getElementById("editKm").value = r.kmGiornalieri || "";
-  document.getElementById("editRifornimentoKm").value = r.rifornimentoKm || "";
-  document.getElementById("editLitri").value = r.quantitaLitri || "";
-  document.getElementById("editEuro").value = r.importoeuro || "";
-  document.getElementById("editProssimo").value = r.prossimoRifornimento || "";
+  const container =
+  document.getElementById("rifornimentiEditor");
+
+container.innerHTML = "";
+
+const rifs = r.rifornimenti || [];
+
+rifs.forEach((rf, i) => {
+
+  container.innerHTML += `
+    <div style="
+      border:1px solid #ccc;
+      padding:10px;
+      margin-bottom:10px;
+      border-radius:8px;
+    ">
+
+      <b>Rifornimento ${i + 1}</b><br><br>
+
+      <input
+        type="number"
+        class="rf-km"
+        value="${rf.km || ''}"
+        placeholder="KM"
+      ><br><br>
+
+      <input
+        type="number"
+        class="rf-litri"
+        value="${rf.litri || ''}"
+        placeholder="Litri"
+      ><br><br>
+
+      <input
+        type="number"
+        class="rf-euro"
+        value="${rf.euro || ''}"
+        placeholder="Euro"
+      ><br><br>
+
+      <input
+        type="text"
+        class="rf-prossimo"
+        value="${rf.prossimoRifornimento || ''}"
+        placeholder="Prossimo"
+      >
+
+    </div>
+  `;
+});
 
   document.getElementById("modalReport").style.display = "block";
 }
@@ -1272,11 +1359,26 @@ async function salvaCampi(){
       targa: document.getElementById("editTarga").value.toUpperCase(),
 
       kmGiornalieri: Number(document.getElementById("editKm").value),
-      rifornimentoKm: Number(document.getElementById("editRifornimentoKm").value),
-      quantitaLitri: Number(document.getElementById("editLitri").value),
-      importoeuro: Number(document.getElementById("editEuro").value),
+    rifornimenti: Array.from(
+  document.querySelectorAll("#rifornimentiEditor > div")
+).map(div => ({
 
-      prossimoRifornimento: document.getElementById("editProssimo").value
+  km: Number(
+    div.querySelector(".rf-km").value
+  ),
+
+  litri: Number(
+    div.querySelector(".rf-litri").value
+  ),
+
+  euro: Number(
+    div.querySelector(".rf-euro").value
+  ),
+
+  prossimoRifornimento:
+    div.querySelector(".rf-prossimo").value
+
+}))
 
     });
 

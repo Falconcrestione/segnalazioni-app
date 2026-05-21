@@ -16,13 +16,45 @@ export default function Sorveglianza() {
 
   const [kmPartenza, setKmPartenza] = useState("");
   const [kmArrivo, setKmArrivo] = useState("");
-  const [rifornimentoKm, setRifornimentoKm] = useState("");
-const [quantitaLitri, setQuantitaLitri] = useState("");
-const [importoeuro, setImportoEuro] = useState("");
-  const [jpgFile, setJpgFile] = useState<File | null>(null);
+ const [rifornimenti, setRifornimenti] = useState([
+  {
+    km: "",
+    litri: "",
+    euro: "",
+    foto: null as File | null
+  }
+]);
 
   const [latLng, setLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const aggiungiRifornimento = () => {
+
+  setRifornimenti(prev => [
+    ...prev,
+    {
+      km: "",
+      litri: "",
+      euro: "",
+      foto: null
+    }
+  ]);
+};
+
+const updateRifornimento = (
+  index: number,
+  field: string,
+  value: any
+) => {
+
+  const updated = [...rifornimenti];
+
+  updated[index] = {
+    ...updated[index],
+    [field]: value
+  };
+
+  setRifornimenti(updated);
+};
 
   const [showPdfForm, setShowPdfForm] = useState(false);
   const [pdfFormData, setPdfFormData] = useState({
@@ -197,26 +229,47 @@ const handlePdfFormChange = (
     const kmGiornalieri =
   Number(kmArrivo) - Number(kmPartenza);
 
-let prossimoRifornimento = null;
+const rifornimentiCompleti = [];
 
-if (rifornimentoKm && quantitaLitri && kmArrivo) {
+for (const r of rifornimenti) {
 
-  const kmPercorsiDalPieno =
-    Number(kmArrivo) - Number(rifornimentoKm);
+  let fotoUrl = null;
 
-  if (kmPercorsiDalPieno > 0) {
+  // upload foto
+  if (r.foto) {
 
-    const consumoMedio = 15; // km/litro
+    const fotoRef = ref(
+      storage,
+      `images/rifornimenti/distretto_${distretto}/${Date.now()}_${r.foto.name}`
+    );
+
+    await uploadBytes(fotoRef, r.foto);
+
+    fotoUrl = await getDownloadURL(fotoRef);
+  }
+
+  let prossimo = null;
+
+  if (r.km && r.litri) {
+
+    const consumoMedio = 15;
 
     const autonomiaStimata =
-      consumoMedio * Number(quantitaLitri);
+      consumoMedio * Number(r.litri);
 
-    prossimoRifornimento = Math.round(
-      Number(rifornimentoKm) + autonomiaStimata
+    prossimo = Math.round(
+      Number(r.km) + autonomiaStimata
     );
   }
-}
 
+  rifornimentiCompleti.push({
+    km: Number(r.km),
+    litri: Number(r.litri),
+    euro: Number(r.euro),
+    foto: fotoUrl,
+    prossimoRifornimento: prossimo
+  });
+}
 if (kmGiornalieri < 0)
   return alert("KM arrivo non validi");
 
@@ -239,15 +292,8 @@ if (kmGiornalieri < 0)
       await uploadBytes(pdfRef, pdfFile);
       const pdfUrl = await getDownloadURL(pdfRef);
 
-      let jpgUrl: string | null = null;
-      if (jpgFile) {
-        const jpgRef = ref(
-          storage,
-          `images/sorveglianza/distretto_${distretto}/${Date.now()}_${jpgFile.name}`
-        );
-        await uploadBytes(jpgRef, jpgFile);
-        jpgUrl = await getDownloadURL(jpgRef);
-      }
+     
+        
 
       await addDoc(collection(db, "reports"), {
   flusso: "sorveglianza",
@@ -260,22 +306,27 @@ if (kmGiornalieri < 0)
   kmArrivo: Number(kmArrivo),
   kmGiornalieri,
 
-  rifornimentoKm: rifornimentoKm
-    ? Number(rifornimentoKm)
-    : null,
+  // ✅ nuovo sistema
+rifornimenti: rifornimentiCompleti,
 
-  quantitaLitri: quantitaLitri
-    ? Number(quantitaLitri)
-    : null,
+// ✅ compatibilità dashboard
+rifornimentoKm:
+  rifornimentiCompleti[0]?.km || null,
 
-  importoeuro: importoeuro
-    ? Number(importoeuro)
-    : null,
+quantitaLitri:
+  rifornimentiCompleti[0]?.litri || null,
 
-  prossimoRifornimento,
+importoeuro:
+  rifornimentiCompleti[0]?.euro || null,
+
+prossimoRifornimento:
+  rifornimentiCompleti[0]?.prossimoRifornimento || null,
+
+jpg:
+  rifornimentiCompleti[0]?.foto || null,
 
   pdf: pdfUrl,
-  jpg: jpgUrl,
+  
         latitudine: latLng.lat,
         longitudine: latLng.lng,
         validated: false,
@@ -365,10 +416,14 @@ if (veicoloId) {
       setTarga("");
       setKmPartenza("");
       setKmArrivo("");
-      setRifornimentoKm("");
-setQuantitaLitri("");
-setImportoEuro("");
-      setJpgFile(null);
+     setRifornimenti([
+  {
+    km: "",
+    litri: "",
+    euro: "",
+    foto: null
+  }
+]);
       setPdfFormData({
         veicolo: "",
         targa: "",
@@ -418,13 +473,9 @@ setImportoEuro("");
                 onChange={handlePdfFormChange}
                 placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
                 style={input}
-               type={
+             type={
   key === "data"
     ? "date"
-    : key.includes("km") ||
-      key === "benzina" ||
-      key === "gasolio"
-    ? "number"
     : key.includes("ora")
     ? "time"
     : "text"
@@ -450,8 +501,7 @@ setImportoEuro("");
         </div>
       )}
 
-      <label>Foto (opzionale)</label>
-      <input type="file" accept="image/*" onChange={e => setJpgFile(e.target.files?.[0] || null)} />
+      
 
       <h3>Dati Veicolo</h3>
 
@@ -521,40 +571,89 @@ setImportoEuro("");
 
       <input style={input} type="number" placeholder="KM Partenza" value={kmPartenza} onChange={e => setKmPartenza(e.target.value)} />
       <input style={input} type="number" placeholder="KM Arrivo" value={kmArrivo} onChange={e => setKmArrivo(e.target.value)} />
-      <div
+     <h3>Rifornimenti</h3>
+
+{rifornimenti.map((r, index) => (
+
+  <div
+    key={index}
+    style={{
+      border: "1px solid #ccc",
+      padding: 10,
+      borderRadius: 8,
+      marginBottom: 10,
+      display: "grid",
+      gap: "10px"
+    }}
+  >
+
+    <input
+      style={input}
+      type="number"
+      placeholder="Rifornimento a KM"
+      value={r.km}
+      onChange={e =>
+        updateRifornimento(
+          index,
+          "km",
+          e.target.value
+        )
+      }
+    />
+
+    <input
+      style={input}
+      type="number"
+      placeholder="Quantità Litri"
+      value={r.litri}
+      onChange={e =>
+        updateRifornimento(
+          index,
+          "litri",
+          e.target.value
+        )
+      }
+    />
+
+    <input
+      style={input}
+      type="number"
+      placeholder="Importo Euro"
+      value={r.euro}
+      onChange={e =>
+        updateRifornimento(
+          index,
+          "euro",
+          e.target.value
+        )
+      }
+    />
+
+    <input
+      type="file"
+      accept="image/*"
+      onChange={e =>
+        updateRifornimento(
+          index,
+          "foto",
+          e.target.files?.[0] || null
+        )
+      }
+    />
+
+  </div>
+))}
+
+<button
+  type="button"
   style={{
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "10px"
+    ...btn,
+    background: "#28a745"
   }}
+  onClick={aggiungiRifornimento}
 >
-
-  <input
-    style={input}
-    type="number"
-    placeholder="Rifornimento a KM"
-    value={rifornimentoKm}
-    onChange={e => setRifornimentoKm(e.target.value)}
-  />
-
-  <input
-    style={input}
-    type="number"
-    placeholder="Quantità Litri"
-    value={quantitaLitri}
-    onChange={e => setQuantitaLitri(e.target.value)}
-  />
-
-  <input
-    style={input}
-    type="number"
-    placeholder="Importo Euro"
-    value={importoeuro}
-    onChange={e => setImportoEuro(e.target.value)}
-  />
-
-</div>
-
+  ➕ Aggiungi Rifornimento
+</button>
       <button onClick={handleSend} disabled={loading} style={btn}>
         {loading ? "Invio..." : "📤 Invia Report"}
       </button>
