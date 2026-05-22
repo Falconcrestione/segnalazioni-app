@@ -29,6 +29,7 @@ export default function Sorveglianza() {
   const [rifornimentoKm, setRifornimentoKm] = useState("");
 const [quantitaLitri, setQuantitaLitri] = useState("");
 const[importoeuro, setImportoEuro] = useState("");
+const [receiptUrl, setReceiptUrl] = useState("");
 
   const [jpgFile, setJpgFile] = useState<File | null>(null);
 
@@ -216,6 +217,7 @@ if (kmGiornalieri < 0) return alert("KM arrivo non validi");
       );
       await uploadBytes(pdfRef, pdfFile);
       const pdfUrl = await getDownloadURL(pdfRef);
+      setReceiptUrl(pdfUrl);
 
       let jpgUrl: string | null = null;
       if (jpgFile) {
@@ -305,7 +307,19 @@ setImportoEuro("")
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-5">
         <h2 className="text-xl font-bold text-center text-gray-800">
           🛡️ Sorveglianza – Invio Report
+          
         </h2>
+        {receiptUrl && (
+  <a
+    href={receiptUrl}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="block text-center bg-green-600 text-white py-2 rounded-lg mt-3"
+  >
+    📄 Scarica Ricevuta PDF
+  </a>
+)}
+        
 
         {/* DOCUMENTI */}
         <div className="space-y-3">

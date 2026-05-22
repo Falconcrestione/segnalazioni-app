@@ -107,6 +107,7 @@ const leafletRef = useRef<any>(null);
 const layersRef = useRef<any[]>([]);
 const intervalRef = useRef<any>(null);
 const bearingsRef = useRef<any>({});
+const trackingRef = useRef<any>({});
 
   const [loggedIn, setLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -234,6 +235,61 @@ const bearingsRef = useRef<any>({});
       Math.cos((lon2-lon1)*Math.PI/180);
     return (Math.atan2(y,x) * 180/Math.PI + 360) % 360;
   }
+  function calculateSpeedAdvanced(
+  device:string,
+  lat:number,
+  lng:number
+) {
+  const now = Date.now();
+
+  const prev = trackingRef.current[device];
+
+  if (!prev) {
+    trackingRef.current[device] = {
+      lat,
+      lng,
+      time: now,
+      speed: 0
+    };
+
+    return 0;
+  }
+
+  const distance = haversine(
+    prev.lat,
+    prev.lng,
+    lat,
+    lng
+  );
+
+  const seconds = (now - prev.time) / 1000;
+
+  if (seconds <= 0) return prev.speed || 0;
+
+  let speed = (distance / seconds) * 3.6;
+
+  // filtro jitter GPS
+  if (distance < 5) {
+    speed = 0;
+  }
+
+  // filtro velocità impossibili
+  if (speed > 180) {
+    speed = prev.speed || 0;
+  }
+
+  // smoothing velocità
+  speed = ((prev.speed || 0) * 0.7) + (speed * 0.3);
+
+  trackingRef.current[device] = {
+    lat,
+    lng,
+    time: now,
+    speed
+  };
+
+  return speed;
+}
   function getColorFromDevice(device:string){
   let hash = 0;
   for (let i = 0; i < device.length; i++) {
@@ -281,6 +337,14 @@ const bearingsRef = useRef<any>({});
       }
 
       const last = filteredPoints[filteredPoints.length-1];
+      const currentLat = Number(String(last.lat).replace(",", "."));
+const currentLng = Number(String(last.lng).replace(",", "."));
+
+const speed = calculateSpeedAdvanced(
+  device,
+  currentLat,
+  currentLng
+);
       const deviceInfo = DEVICE_INFO[device.toUpperCase()] || {};
 const teamCode = deviceInfo.team || "";
       const prev = filteredPoints[filteredPoints.length-2];
@@ -328,11 +392,14 @@ if (dist > 10) { // minimo 10 metri di movimento
         Number(String(last.lng).replace(",", "."))
       ], { icon })
         .addTo(mapRef.current)
-        .bindPopup(`
-  <b>${device}</b><br>
-  Distretto: ${last.district}<br>
-  ${teamCode ? `Squadra: ${teamCode}<br>` : ""}
-  ${(total/1000).toFixed(2)} km
+       .bindPopup(`
+  <div style="font-family:sans-serif">
+    <b>${device}</b><br>
+    Distretto: ${last.district}<br>
+    ${teamCode ? `👥 ${teamCode}<br>` : ""}
+    📍 ${(total/1000).toFixed(2)} km<br>
+    🚀 ${speed.toFixed(1)} km/h
+  </div>
 `);
       layersRef.current.push(marker);
 
@@ -341,7 +408,8 @@ if (dist > 10) { // minimo 10 metri di movimento
   distance:(total/1000).toFixed(2),
   color,
   points: filteredPoints.length,
-  teamCode
+  teamCode,
+  speed: speed.toFixed(1)
 });
     }
 
@@ -424,18 +492,47 @@ if (dist > 10) { // minimo 10 metri di movimento
           </span>
         </div>
 
-        {devicesInfo.map(d=>(
-          <div key={d.name} style={{background:"#fff", padding:12, borderRadius:10, marginBottom:12, boxShadow:"0 4px 10px rgba(0,0,0,0.05)", borderLeft:`5px solid ${d.color}`}}>
-            <div style={{fontWeight:700, marginBottom:5}}>{d.name}</div>
-            {d.teamCode && (
-  <div style={{fontSize:13,color:"#555"}}>
-    👥 {d.teamCode}
+       {devicesInfo.map(d=>(
+  <div key={d.name} style={{
+    background:"#fff",
+    padding:12,
+    borderRadius:10,
+    marginBottom:12,
+    boxShadow:"0 4px 10px rgba(0,0,0,0.05)",
+    borderLeft:`5px solid ${d.color}`
+  }}>
+
+    <div style={{fontWeight:700, marginBottom:5}}>
+      {d.name}
+    </div>
+
+    {d.teamCode && (
+      <div style={{fontSize:13,color:"#555"}}>
+        👥 {d.teamCode}
+      </div>
+    )}
+
+    <div style={{fontSize:13, color:"#555"}}>
+      📍 {d.distance} km
+    </div>
+
+    <div style={{fontSize:13, color:"#555"}}>
+      📊 {d.points} punti
+    </div>
+
+    <div style={{
+      fontSize:14,
+      fontWeight:600,
+      color:
+        Number(d.speed) < 10 ? "#2ecc71" :
+        Number(d.speed) < 50 ? "#f39c12" :
+        "#e74c3c"
+    }}>
+      🚀 {d.speed} km/h
+    </div>
+
   </div>
-)}
-            <div style={{fontSize:13, color:"#555"}}>📍 {d.distance} km</div>
-            <div style={{fontSize:13, color:"#555"}}>📊 {d.points} punti</div>
-          </div>
-        ))}
+))}
       </div>
 
       <div id="map" style={{ height:"100vh", marginLeft:300 }} />
