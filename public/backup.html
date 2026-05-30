@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Veicoli & Reports</title>
+<title>STORICO</title>
 
 <!-- LEAFLET -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -48,18 +48,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <h1>🚓 Dashboard Gestione Veicoli & Reports</h1>
 
 <div style="margin-bottom:20px;">
-  <button id="backupBtn" onclick="eseguiBackup()" style="display:none;">
-📦 Backup
-</button>
-
-<button id="backupPageBtn" onclick="apriBackupPage()" style="display:none;">
-📂 Archivio Backup
-</button>
-
   <b>Vista:</b>
-  <button class="btn-approve" onclick="reportsMode='month'; loadReports();">
-📅 Mese corrente
-</button>
   <select id="distrettoSelector" onchange="checkPassword()">
     <option value="">-- Seleziona --</option>
     <option value="ALL">🌍 Superuser – Tutti i distretti</option>
@@ -326,18 +315,7 @@ function checkPassword() {
   if (!user) return;
   const pw = prompt("Inserisci la password");
   if (pw !== passwords[user]) { alert("Password errata!"); accessGranted=false; clearAllTables(); return; }
-  accessGranted = true;
-  const backupBtn = document.getElementById("backupBtn");
-const backupPageBtn = document.getElementById("backupPageBtn");
-
-if (user === "sede_centrale") {
-  backupBtn.style.display = "inline-block";
-  backupPageBtn.style.display = "inline-block";
-} else {
-  backupBtn.style.display = "none";
-  backupPageBtn.style.display = "none";
-}
-   reloadAll();
+  accessGranted = true; reloadAll();
 }
 
 function distrettoAttivo() { return distrettoSelector.value==="ALL"?"ALL":Number(distrettoSelector.value); }
@@ -426,7 +404,7 @@ function resetFiltroData() {
 /* ================= REPORTS ================= */
 function loadReports() {
   if (!accessGranted) return;
-  db.collection("reports").onSnapshot(snap => {
+db.collection("reports_backup_full").onSnapshot(snap => {
    reportsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     renderReports(reportsCache);
@@ -438,17 +416,7 @@ function renderReports(list) {
   markersReport.clearLayers();
   let totaleKm=0;
   let totaleEuro = 0;
-  let filtered = list;
-
-// 🔥 modalità recenti
-if (reportsMode === "recent") {
-  filtered = list.slice(-20);
-}
-
-// 📅 modalità mese corrente
-if (reportsMode === "month") {
-  filtered = filtraMeseCorrente(list);
-}
+  let filtered = reportsMode==="recent"?list.slice(-20):list;
   filtered.forEach(d=>{
     if(!d.distretto) return;
     const active = distrettoAttivo();
@@ -618,7 +586,7 @@ function loadRichieste() {
     richiesteAutoListener();
   }
 
-  richiesteAutoListener = db.collection("richieste").onSnapshot(async snap => {
+  richiesteAutoListener = db.collection("richieste_backup_full").onSnapshot(async snap => {
 
     body.innerHTML = "";
     markersRichieste.clearLayers();
@@ -629,27 +597,9 @@ function loadRichieste() {
       ...vdoc.data()
     }));
 
-   for (const doc of snap.docs) {
+    for (const doc of snap.docs) {
 
-  const r = doc.data();
-
-  // 🔥 FILTRO MESE (PRIMA DI TUTTO)
-  if (reportsMode === "month") {
-
-    if (!r.dataMissione) continue;
-
-    const d = r.dataMissione.toDate();
-    const now = new Date();
-
-    if (
-      d.getMonth() !== now.getMonth() ||
-      d.getFullYear() !== now.getFullYear()
-    ) {
-      continue;
-    }
-  }
-
-  // 👇 SOLO DOPO gli altri filtri
+      const r = doc.data();
 
       if (typeof r.distretto !== "number") continue;
       if (distrettoAttivo() !== "ALL" && r.distretto !== distrettoAttivo()) continue;
@@ -1143,7 +1093,7 @@ function exportReportsExcel() {
     };
 
     // 🔴 CASO 1: RIFORNIMENTI MULTIPLI
-    if (Array.isArray(d.rifornimenti) && d.rifornimenti.length > 0) {
+     if (Array.isArray(d.rifornimenti) && d.rifornimenti.length > 0) {
 
   totaleKm += Number(d.kmGiornalieri || 0);
 
@@ -1545,93 +1495,7 @@ async function aggiornaStatoVeicolo(veicoloId) {
     });
   }
 }
-async function eseguiBackup() {
 
-  if (distrettoSelector.value !== "sede_centrale") {
-    alert("Non autorizzato");
-    return;
-  }
-
-  const conferma = prompt("Scrivi: CONFERMA BACKUP");
-  if (conferma !== "CONFERMA BACKUP") return;
-
-  try {
-
-    // =========================
-    // REPORTS → BACKUP COMPLETO
-    // =========================
-    const reportsSnap = await db.collection("reports").get();
-
-    for (const doc of reportsSnap.docs) {
-
-      await db.collection("reports_backup_full")
-        .doc(doc.id)
-        .set({
-          ...doc.data(),
-          backupDate: firebase.firestore.Timestamp.now()
-        });
-
-    }
-
-    // =========================
-    // RICHIESTE → SOLO COMPLETATE
-    // =========================
-    const richiesteSnap = await db.collection("richieste")
-      .where("status", "==", "completata")
-      .get();
-
-    for (const doc of richiesteSnap.docs) {
-
-      await db.collection("richieste_backup_full")
-        .doc(doc.id)
-        .set({
-          ...doc.data(),
-          backupDate: firebase.firestore.Timestamp.now()
-        });
-
-    }
-
-    alert("✅ BACKUP COMPLETATO CORRETTAMENTE");
-
-    reloadAll();
-
-  } catch (err) {
-    console.error(err);
-    alert("Errore backup: " + err.message);
-  }
-}
-function filtraMeseCorrente(lista) {
-
-  const now = new Date();
-  const mese = now.getMonth();
-  const anno = now.getFullYear();
-
-  return lista.filter(r => {
-    if (!r.createdAt) return false;
-
-    const d = r.createdAt.toDate();
-
-    return d.getMonth() === mese && d.getFullYear() === anno;
-  });
-}
-function filtraMeseCorrenteRichieste(lista) {
-
-  const now = new Date();
-  const mese = now.getMonth();
-  const anno = now.getFullYear();
-
-  return lista.filter(r => {
-
-    if (!r.dataMissione) return false;
-
-    const d = r.dataMissione.toDate();
-
-    return d.getMonth() === mese && d.getFullYear() === anno;
-  });
-}
-function apriBackupPage() {
-  window.location.href = "backup.html";
-}
 
 function reloadAll(){ loadReports(); loadVeicoli(); loadRichieste(); }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
