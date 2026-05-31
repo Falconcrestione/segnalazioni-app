@@ -132,6 +132,13 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 
 
 <h2>🚗 Veicoli</h2>
+
+<div id="adminVeicoli" style="display:none;margin-bottom:10px;">
+  <button onclick="apriNuovoVeicolo()">
+    ➕ Aggiungi Veicolo
+  </button>
+</div>
+
 <div class="table-container">
 <table>
 <thead>
@@ -253,6 +260,63 @@ box-sizing:border-box;
 
 
 </div>
+<div id="modalNuovoVeicolo" style="
+display:none;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 0 20px rgba(0,0,0,.3);
+z-index:999;
+width:400px;
+">
+
+<h3>➕ Nuovo Veicolo</h3>
+
+<label>Targa</label><br>
+<input id="newTarga"><br><br>
+
+<label>Modello</label><br>
+<input id="newModello"><br><br>
+
+<label>Comparto</label><br>
+<select id="newComparto">
+  <option value="FORESTAZIONE">FORESTAZIONE</option>
+  <option value="SORVEGLIANZA">SORVEGLIANZA</option>
+  <option value="AIB">AIB</option>
+</select>
+
+<br><br>
+
+<label>Distretto</label><br>
+<select id="newDistretto">
+  <option value="1">Distretto 1</option>
+  <option value="2">Distretto 2</option>
+  <option value="3">Distretto 3</option>
+  <option value="4">Distretto 4</option>
+  <option value="5">Distretto 5</option>
+  <option value="6">Distretto 6</option>
+  <option value="7">Distretto 7</option>
+  <option value="8">Distretto 8</option>
+  <option value="9">Distretto 9</option>
+  <option value="10">Distretto 10</option>
+  <option value="11">Distretto 11</option>
+</select>
+
+<br><br>
+
+<button onclick="salvaNuovoVeicolo()">
+💾 Salva
+</button>
+
+<button onclick="chiudiNuovoVeicolo()">
+❌ Chiudi
+</button>
+
+</div>
 
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
@@ -330,17 +394,39 @@ function checkPassword() {
   const backupBtn = document.getElementById("backupBtn");
 const backupPageBtn = document.getElementById("backupPageBtn");
 
+const adminVeicoli =
+  document.getElementById("adminVeicoli");
+
 if (user === "sede_centrale") {
+
   backupBtn.style.display = "inline-block";
   backupPageBtn.style.display = "inline-block";
+
+  adminVeicoli.style.display = "block";
+
 } else {
+
   backupBtn.style.display = "none";
   backupPageBtn.style.display = "none";
+
+  adminVeicoli.style.display = "none";
 }
    reloadAll();
 }
 
-function distrettoAttivo() { return distrettoSelector.value==="ALL"?"ALL":Number(distrettoSelector.value); }
+function distrettoAttivo() {
+
+  const val = distrettoSelector.value;
+
+  if (
+    val === "ALL" ||
+    val === "sede_centrale"
+  ) {
+    return "ALL";
+  }
+
+  return Number(val);
+}
 
 /* ================= SEARCH TARGA================= */
 function cercaTarga() {
@@ -439,6 +525,8 @@ function renderReports(list) {
   let totaleKm=0;
   let totaleEuro = 0;
   let filtered = list;
+  const ultimePosizioni = {};
+  
 
 // 🔥 modalità recenti
 if (reportsMode === "recent") {
@@ -571,12 +659,51 @@ if (Array.isArray(d.rifornimenti) && d.rifornimenti.length > 0) {
   </td>
 </tr>
 `;
-    if(d.latitudine && d.longitudine){
-      const m=L.marker([d.latitudine,d.longitudine]);
-      m.bindPopup(`<b>${d.targa}</b><br>${d.tipoVeicolo}`);
-      markersReport.addLayer(m);
+   if(d.targa && d.latitudine && d.longitudine){
+
+  const targa = d.targa;
+
+  if(!ultimePosizioni[targa]){
+
+    ultimePosizioni[targa] = d;
+
+  } else {
+
+    const oldDate = ultimePosizioni[targa].createdAt
+      ? ultimePosizioni[targa].createdAt.toDate()
+      : new Date(0);
+
+    const newDate = d.createdAt
+      ? d.createdAt.toDate()
+      : new Date(0);
+
+    if(newDate > oldDate){
+      ultimePosizioni[targa] = d;
     }
+  }
+}
   });
+  Object.values(ultimePosizioni).forEach(v => {
+
+  const marker = L.marker([
+    v.latitudine,
+    v.longitudine
+  ]);
+
+  marker.bindPopup(`
+    <b>${v.targa}</b><br>
+    ${v.tipoVeicolo}<br>
+    Ultimo aggiornamento:<br>
+    ${
+      v.createdAt
+        ? v.createdAt.toDate().toLocaleString("it-IT")
+        : "-"
+    }
+  `);
+
+  markersReport.addLayer(marker);
+
+});
   totKm.innerText="Totale KM: "+totaleKm;
   totEuro.innerText =
   "Totale €: " +
@@ -908,7 +1035,20 @@ veicoliBody.innerHTML += `
 <td>Distretto ${v.distretto}</td>
 
 <td>
-    <button onclick="apriGestione('${doc.id}', 
+
+${distrettoSelector.value === "sede_centrale"
+  ? `
+<button
+onclick="eliminaVeicolo('${doc.id}')"
+style="background:#dc3545;color:white;margin-bottom:5px;">
+🗑 Elimina
+</button>
+<br>
+`
+  : ""
+}
+
+<button onclick="apriGestione('${doc.id}', 
       '${v.assicurazioneScadenza ? v.assicurazioneScadenza.toDate().toISOString().split('T')[0] : ""}',
       '${v.bolloScadenza ? v.bolloScadenza.toDate().toISOString().split('T')[0] : ""}',
       '${v.revisioneScadenza ? v.revisioneScadenza.toDate().toISOString().split('T')[0] : ""}',
@@ -1631,6 +1771,105 @@ function filtraMeseCorrenteRichieste(lista) {
 }
 function apriBackupPage() {
   window.location.href = "backup.html";
+}
+function apriNuovoVeicolo(){
+  document.getElementById(
+    "modalNuovoVeicolo"
+  ).style.display = "block";
+}
+
+function chiudiNuovoVeicolo(){
+  document.getElementById(
+    "modalNuovoVeicolo"
+  ).style.display = "none";
+}
+
+async function salvaNuovoVeicolo(){
+
+  if(distrettoSelector.value !== "sede_centrale"){
+    return alert("Non autorizzato");
+  }
+
+  try{
+
+    const targa =
+      document.getElementById("newTarga")
+      .value
+      .trim()
+      .toUpperCase();
+
+    const modello =
+      document.getElementById("newModello")
+      .value
+      .trim();
+
+    const comparto =
+      document.getElementById("newComparto")
+      .value;
+
+    const distretto =
+      Number(
+        document.getElementById("newDistretto")
+        .value
+      );
+
+    if(!targa || !modello){
+      alert("Compila tutti i campi");
+      return;
+    }
+
+    await db.collection("veicoli").add({
+
+      targa,
+      modello,
+      comparto,
+      distretto,
+
+      stato: "libero",
+      statoVeicolo: "Operativo",
+
+      createdAt:
+        firebase.firestore.Timestamp.now()
+
+    });
+
+    chiudiNuovoVeicolo();
+
+    alert("Veicolo aggiunto");
+
+  }catch(err){
+
+    console.error(err);
+
+    alert("Errore inserimento");
+  }
+}
+async function eliminaVeicolo(id){
+
+  if(distrettoSelector.value !== "sede_centrale"){
+    return alert("Non autorizzato");
+  }
+
+  if(!confirm(
+    "Eliminare definitivamente il veicolo?"
+  )){
+    return;
+  }
+
+  try{
+
+    await db.collection("veicoli")
+      .doc(id)
+      .delete();
+
+    alert("Veicolo eliminato");
+
+  }catch(err){
+
+    console.error(err);
+
+    alert("Errore eliminazione");
+  }
 }
 
 function reloadAll(){ loadReports(); loadVeicoli(); loadRichieste(); }
