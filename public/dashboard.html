@@ -130,6 +130,31 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 </table>
 </div>
 
+<div id="modificheContainer" style="display:none;">
+
+<h2>📋 Modifiche Reports</h2>
+
+<div class="table-container">
+<table>
+
+<thead>
+<tr>
+<th>Data</th>
+<th>Utente</th>
+<th>ID Report</th>
+<th>Targa</th>
+<th>Distretto</th>
+<th>Comparto</th>
+<th>KM</th>
+</tr>
+</thead>
+
+<tbody id="modificheBody"></tbody>
+
+</table>
+</div>
+
+</div>
 
 <h2>🚗 Veicoli</h2>
 
@@ -404,12 +429,20 @@ if (user === "sede_centrale") {
 
   adminVeicoli.style.display = "block";
 
+  document.getElementById(
+    "modificheContainer"
+  ).style.display = "block";
+
 } else {
 
   backupBtn.style.display = "none";
   backupPageBtn.style.display = "none";
 
   adminVeicoli.style.display = "none";
+
+  document.getElementById(
+    "modificheContainer"
+  ).style.display = "none";
 }
    reloadAll();
 }
@@ -1598,6 +1631,39 @@ async function salvaCampi(){
 }))
 
     });
+    await db.collection("modifiche_reports").add({
+
+  reportId: id,
+
+  dataModifica:
+    firebase.firestore.Timestamp.now(),
+
+  utente:
+    distrettoSelector.value,
+
+  targa:
+    document.getElementById("editTarga")
+      .value
+      .toUpperCase(),
+
+  distretto:
+    Number(
+      document.getElementById("editDistretto")
+        .value
+    ),
+
+  comparto:
+    document.getElementById("editComparto")
+      .value,
+
+  km:
+    Number(
+      document.getElementById("editKm")
+        .value
+    )
+
+});
+    
 
     alert("Campi aggiornati ✅");
     chiudiModalReport();
@@ -1871,8 +1937,72 @@ async function eliminaVeicolo(id){
     alert("Errore eliminazione");
   }
 }
+function loadModificheReports(){
 
-function reloadAll(){ loadReports(); loadVeicoli(); loadRichieste(); }
+  const body = document.getElementById(
+    "modificheBody"
+  );
+
+  if(!body) return;
+
+  db.collection("modifiche_reports")
+    .orderBy("dataModifica","desc")
+    .onSnapshot(snap => {
+
+      body.innerHTML = "";
+
+      snap.forEach(doc => {
+
+        const d = doc.data();
+
+        body.innerHTML += `
+          <tr>
+            <td>
+              ${
+                d.dataModifica
+                  ? d.dataModifica
+                      .toDate()
+                      .toLocaleString("it-IT")
+                  : "-"
+              }
+            </td>
+
+            <td>${d.utente || "-"}</td>
+
+            <td>${d.reportId || "-"}</td>
+
+            <td>${d.targa || "-"}</td>
+
+            <td>${d.distretto || "-"}</td>
+
+            <td>${d.comparto || "-"}</td>
+
+            <td>${d.km || "-"}</td>
+
+          </tr>
+        `;
+      });
+
+    });
+
+}
+
+function reloadAll(){
+
+  loadReports();
+
+  loadVeicoli();
+
+  loadRichieste();
+
+  if(
+    distrettoSelector.value ===
+    "sede_centrale"
+  ){
+    loadModificheReports();
+  }
+
+}
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
 
 clearAllTables();
