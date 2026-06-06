@@ -225,6 +225,18 @@ const handlePdfFormChange = (
     if (!distretto) return alert("Seleziona il distretto");
     if (!comparto || !tipoVeicolo || !targa) return alert("Compila tutti i campi");
     if (!latLng) return alert("Posizione non disponibile");
+    // ✅ Foto obbligatoria se il rifornimento è compilato
+for (const r of rifornimenti) {
+  const haKm = r.km !== "";
+  const haLitri = r.litri !== "";
+  const haEuro = r.euro !== "";
+
+  if (haKm && haLitri && haEuro && !r.foto) {
+    return alert(
+      "⚠️ Devi aggiungere la foto dello scontrino."
+    );
+  }
+}
 
     const kmGiornalieri =
   Number(kmArrivo) - Number(kmPartenza);
