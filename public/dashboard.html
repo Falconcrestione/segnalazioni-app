@@ -180,6 +180,27 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <tbody id="veicoliBody"></tbody>
 </table>
 </div>
+<div style="margin-bottom:10px;">
+  <input
+    type="date"
+    id="richiesteFromDate"
+    onchange="loadRichieste()"
+  >
+
+  <input
+    type="date"
+    id="richiesteToDate"
+    onchange="loadRichieste()"
+  >
+
+  <button onclick="resetFiltroRichieste()">
+    Reset
+  </button>
+</div>
+
+<button onclick="exportRichiesteExcel()">
+  📥 Scarica Richieste Approvate
+</button>
 
 <h2>📨 Richieste Veicoli</h2>
 <div class="table-container">
@@ -792,6 +813,37 @@ function loadRichieste() {
    for (const doc of snap.docs) {
 
   const r = doc.data();
+  console.log(
+  "Missione:",
+  r.dataMissione ? r.dataMissione.toDate() : null
+);
+  const from = document.getElementById("richiesteFromDate")?.value;
+const to = document.getElementById("richiesteToDate")?.value;
+console.log("FROM", from);
+console.log("TO", to);
+
+if (r.dataMissione) {
+
+  const dataMissione = r.dataMissione.toDate();
+
+  if (from) {
+    const fromDate = new Date(from);
+    fromDate.setHours(0,0,0,0);
+
+    if (dataMissione < fromDate) {
+      continue;
+    }
+  }
+
+  if (to) {
+    const toDate = new Date(to);
+    toDate.setHours(23,59,59,999);
+
+    if (dataMissione > toDate) {
+      continue;
+    }
+  }
+}
 
   // 🔥 FILTRO MESE (PRIMA DI TUTTO)
   if (reportsMode === "month") {
@@ -2002,6 +2054,143 @@ function reloadAll(){
     loadModificheReports();
   }
 
+}
+function resetFiltroRichieste() {
+
+  document.getElementById("richiesteFromDate").value = "";
+  document.getElementById("richiesteToDate").value = "";
+
+  loadRichieste();
+}
+async function exportRichiesteExcel() {
+
+  try {
+
+    const snap = await db.collection("richieste").get();
+
+    let dati = [];
+
+    snap.forEach(doc => {
+
+      const r = doc.data();
+
+      // Solo approvate
+      if (r.status !== "approvata") return;
+
+      // filtro distretto attivo
+      if (
+        distrettoAttivo() !== "ALL" &&
+        r.distretto !== distrettoAttivo()
+      ) {
+        return;
+      }
+
+      // filtro date richieste
+      const from =
+        document.getElementById("richiesteFromDate")?.value;
+
+      const to =
+        document.getElementById("richiesteToDate")?.value;
+
+      if (r.dataMissione) {
+
+        const dataMissione = r.dataMissione.toDate();
+
+        if (from) {
+
+          const fromDate = new Date(from);
+          fromDate.setHours(0,0,0,0);
+
+          if (dataMissione < fromDate) return;
+        }
+
+        if (to) {
+
+          const toDate = new Date(to);
+          toDate.setHours(23,59,59,999);
+
+          if (dataMissione > toDate) return;
+        }
+      }
+
+      dati.push({
+
+        Nome: r.nome || "",
+
+        Email: r.email || "",
+
+        "Data Missione": r.dataMissione
+          ? r.dataMissione.toDate()
+              .toLocaleDateString("it-IT")
+          : "",
+
+        Missione: r.missione || "",
+
+        Veicolo:
+          r.veicoloTarga ||
+          r.veicolo ||
+          "",
+
+        Distretto:
+          r.distretto || "",
+
+        Stato:
+          r.status || "",
+
+        "Data Assegnazione":
+          r.assegnatoAt
+            ? r.assegnatoAt
+                .toDate()
+                .toLocaleString("it-IT")
+            : ""
+      });
+
+    });
+
+    if (dati.length === 0) {
+      alert("Nessuna richiesta approvata da esportare");
+      return;
+    }
+
+    const ws = XLSX.utils.json_to_sheet(dati);
+
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      "Richieste Approvate"
+    );
+
+    const wbout = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "array"
+    });
+
+    saveAs(
+      new Blob(
+        [wbout],
+        {
+          type:
+            "application/octet-stream"
+        }
+      ),
+      `Richieste_Approvate_${
+        new Date()
+          .toISOString()
+          .slice(0,10)
+      }.xlsx`
+    );
+
+  } catch(err) {
+
+    console.error(err);
+
+    alert(
+      "Errore esportazione: " +
+      err.message
+    );
+  }
 }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
 

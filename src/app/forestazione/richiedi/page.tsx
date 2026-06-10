@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db } from "../../lib/firebase";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,35 @@ export default function RichiediVeicolo() {
   const [dataMissione, setDataMissione] = useState("");
   const [missione, setMissione] = useState("");
   const [distretto, setDistretto] = useState("");
+
+  // Carica dati salvati al primo avvio
+useEffect(() => {
+  const nomeSalvato = localStorage.getItem("nome");
+  const emailSalvata = localStorage.getItem("email");
+  const compartoSalvato = localStorage.getItem("comparto");
+  const distrettoSalvato = localStorage.getItem("distretto");
+
+  if (nomeSalvato) setNome(nomeSalvato);
+  if (emailSalvata) setEmail(emailSalvata);
+  if (compartoSalvato) setComparto(compartoSalvato);
+  if (distrettoSalvato) setDistretto(distrettoSalvato);
+}, []);
+
+useEffect(() => {
+  localStorage.setItem("nome", nome);
+}, [nome]);
+
+useEffect(() => {
+  localStorage.setItem("email", email);
+}, [email]);
+
+useEffect(() => {
+  localStorage.setItem("comparto", comparto);
+}, [comparto]);
+
+useEffect(() => {
+  localStorage.setItem("distretto", distretto);
+}, [distretto]);
 
   const distretti = Array.from({ length: 11 }, (_, i) => `Distretto ${i + 1}`);
 
@@ -45,14 +74,11 @@ export default function RichiediVeicolo() {
           longitudine: lng,
         });
 
-        alert("Richiesta inviata correttamente");
+       alert("Richiesta inviata correttamente");
 
-        setNome("");
-        setEmail("");
-        setComparto("");
-        setDataMissione("");
-        setMissione("");
-        setDistretto("");
+// svuota solo i campi che cambiano ad ogni richiesta
+setDataMissione("");
+setMissione("");
       },
       () => alert("Impossibile ottenere la posizione")
     );

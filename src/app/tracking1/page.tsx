@@ -94,6 +94,39 @@ const WEBAPP_URL =
   "GN944KW": {
     team: "SQUADRA_CS14"
   },
+  "GN994KW": {
+    team: "SQUADRA_CS08"
+  },
+  "GN977KW": {
+    team: "SQUADRA_CS09"
+  },
+  "GN987KW": {
+    team: "SQUADRA_CS07"
+  },
+  "GN971KW": {
+    team: "SQUADRA_CS11"
+  },
+  "GN985KW": {
+    team: "SQUADRA_CS12"
+  },
+  "GN992KW": {
+    team: "SQUADRA_VV54"
+  },
+  "GN981KW": {
+    team: "SQUADRA_VV51"
+  },
+  "GN989KW": {
+    team: "SQUADRA_VV53"
+  },
+  "GN979KW": {
+    team: "SQUADRA_VV49"
+  },
+  "GN966KW": {
+    team: "SQUADRA_VV50"
+  },
+  "GN969KW": {
+    team: "SQUADRA_VV48"
+  },
 
 };
 
