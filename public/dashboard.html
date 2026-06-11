@@ -676,24 +676,26 @@ if (Array.isArray(d.rifornimenti) && d.rifornimenti.length > 0) {
     }
   </td>
 
-  <td>
-    ${
-      d.rifornimenti
-        ? d.rifornimenti
-            .map((r, i) =>
-              r.foto
-                ? `<a href="${r.foto}" target="_blank">Foto ${i + 1}</a>`
-                : ""
-            )
-            .join("<br>")
-        : (
-            d.jpg
-              ? `<a href="${d.jpg}" target="_blank">Foto</a>`
-              : "-"
-          )
-    }
-  </td>
+ <td>
+${
+  Array.isArray(d.rifornimenti) &&
+  d.rifornimenti.length > 0
 
+    ? d.rifornimenti
+        .map((r, i) =>
+          r.foto
+            ? `<a href="${r.foto}" target="_blank">Foto ${i + 1}</a>`
+            : ""
+        )
+        .join("<br>")
+
+    : (
+        d.jpg
+          ? `<a href="${d.jpg}" target="_blank">Foto</a>`
+          : "-"
+      )
+}
+</td>
   <td>
     <button class="btn-reject" onclick="eliminaReport('${d.id}')">
       🗑 Elimina
@@ -1587,7 +1589,8 @@ async function salvaModificaReport(dati){
 function apriModificaReport(id){
   const r = reportsCache.find(x => x.id === id);
   if(!r) return alert("Report non trovato");
-
+  
+  
   document.getElementById("reportId").value = id;
 
   document.getElementById("editDistretto").value = r.distretto || "";
@@ -1725,6 +1728,7 @@ async function salvaCampi(){
     alert("Errore aggiornamento");
   }
 }
+
 function chiudiModalReport(){
   document.getElementById("modalReport").style.display = "none";
 }
