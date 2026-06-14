@@ -18,6 +18,16 @@ export default function Home() {
       alert("Password errata!");
     }
   }
+  function goToDashboardAIB() {
+  const password = prompt("Inserisci password Dashboard AIB");
+
+  if (password === "AiB2026@") {
+    router.push("/dashboard");
+  } else {
+    alert("Password errata!");
+  }
+}
+
 
   return (
     <div
@@ -73,6 +83,15 @@ export default function Home() {
 
         <a href="/dashboard.html" target="_blank" rel="noopener noreferrer">
           <button style={btn}>📊 DASHBOARD1</button>
+        </a>
+       <button
+  style={btn}
+  onClick={goToDashboardAIB}
+>
+  🚜 Dashboard AIB
+</button>
+<a href="/reportsaib" target="_blank" rel="noopener noreferrer">
+          <button style={btn}>📊 Report Squadrette AIB</button>
         </a>
 
        
