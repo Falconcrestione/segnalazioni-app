@@ -60,6 +60,10 @@ export default function DashboardAIB() {
     (acc, r) => acc + Number(r.importo || 0),
     0
   );
+  const totaleKm = reports.reduce(
+  (acc, r) => acc + Number(r.km || 0),
+  0
+);
 
   return (
     <div
@@ -106,6 +110,12 @@ export default function DashboardAIB() {
           value={totaleLitri}
           color="#fd7e14"
         />
+
+        <Card
+  title="Totale KM"
+  value={totaleKm}
+  color="#6f42c1"
+/>
 
         <Card
           title="Totale €"
@@ -270,8 +280,9 @@ export default function DashboardAIB() {
                 <th style={th}>Distretto</th>
                 <th style={th}>Comune</th>
                 <th style={th}>€</th>
-                <th style={th}>Litri</th>
-                <th style={th}>Foto</th>
+<th style={th}>Litri</th>
+<th style={th}>KM</th>
+<th style={th}>Foto</th>
               </tr>
             </thead>
 
@@ -312,12 +323,16 @@ export default function DashboardAIB() {
                     € {r.importo}
                   </td>
 
-                  <td style={td}>
-                    {r.litri}
-                  </td>
+                <td style={td}>
+  {r.litri}
+</td>
 
-                  <td style={td}>
-                    {r.fotoUrl ? (
+<td style={td}>
+  {r.km}
+</td>
+
+<td style={td}>
+  {r.fotoUrl ? (
                       <a
                         href={r.fotoUrl}
                         target="_blank"
@@ -387,3 +402,4 @@ const td = {
   padding: "10px",
   borderBottom: "1px solid #ddd",
 };
+

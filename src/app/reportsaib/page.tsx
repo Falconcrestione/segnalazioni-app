@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -15,7 +16,6 @@ import {
   uploadBytes,
   getDownloadURL,
 } from "firebase/storage";
-import Link from "next/link";
 
 export default function ReportsPage() {
   const [mezzi, setMezzi] = useState<any[]>([]);
@@ -24,11 +24,10 @@ export default function ReportsPage() {
   const [comune, setComune] = useState("");
   const [squadra, setSquadra] = useState("");
 
-  const [importo, setImporto] = useState("");
-  const [litri, setLitri] = useState("");
-
-  const [file, setFile] = useState<File | null>(null);
-
+ const [importo, setImporto] = useState("");
+const [litri, setLitri] = useState("");
+const [km, setKm] = useState("");
+const [file, setFile] = useState<File | null>(null);
   useEffect(() => {
     loadMezzi();
   }, []);
@@ -76,6 +75,8 @@ export default function ReportsPage() {
 
       if (!litri)
         return alert("Inserisci litri");
+    if (!km)
+  return alert("Inserisci KM");
 
       if (!file)
         return alert("Carica scontrino");
@@ -118,11 +119,13 @@ export default function ReportsPage() {
           comune:
             selected.comune,
 
-          importo: Number(importo),
+         importo: Number(importo),
 
-          litri: Number(litri),
+litri: Number(litri),
 
-          fotoUrl,
+km: Number(km),
+
+fotoUrl,
         }
       );
 
@@ -133,6 +136,7 @@ export default function ReportsPage() {
       setSquadra("");
       setImporto("");
       setLitri("");
+      setKm("");
       setFile(null);
     } catch (err) {
       console.error(err);
@@ -141,7 +145,6 @@ export default function ReportsPage() {
   }
 
   return (
-    
     <div
       style={{
         background: "#f4f6f9",
@@ -280,6 +283,16 @@ export default function ReportsPage() {
           }
           style={inputStyle}
         />
+        <label>KM mezzo</label>
+
+<input
+  type="number"
+  value={km}
+  onChange={(e) =>
+    setKm(e.target.value)
+  }
+  style={inputStyle}
+/>
 
         {/* FOTO */}
 
@@ -332,9 +345,6 @@ export default function ReportsPage() {
           Salva Report
         </button>
       </div>
-      <Link href="/">
-        <button style={btn}>🚜 TORNA A HOME</button>
-      </Link>
     </div>
   );
 }
@@ -355,15 +365,4 @@ const inputStyle = {
   marginBottom: "20px",
   borderRadius: "8px",
   border: "1px solid #ccc",
-};
-
-    const btn = {
-  padding: "1rem 2rem",
-  backgroundColor: "#0070f3",
-  color: "white",
-  border: "none",
-  borderRadius: "8px",
-  fontSize: "1.1rem",
-  fontWeight: 700,
-  cursor: "pointer",
 };
