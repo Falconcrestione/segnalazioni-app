@@ -60,8 +60,9 @@ export default function DashboardAIB() {
     (acc, r) => acc + Number(r.importo || 0),
     0
   );
-  const totaleKm = reports.reduce(
-  (acc, r) => acc + Number(r.km || 0),
+ const totaleKm = reports.reduce(
+  (acc, r) =>
+    acc + Number(r.kmPercorsi || 0),
   0
 );
 
@@ -281,7 +282,9 @@ export default function DashboardAIB() {
                 <th style={th}>Comune</th>
                 <th style={th}>€</th>
 <th style={th}>Litri</th>
-<th style={th}>KM</th>
+<th style={th}>KM Partenza</th>
+<th style={th}>KM Arrivo</th>
+<th style={th}>KM Percorsi</th>
 <th style={th}>Foto</th>
               </tr>
             </thead>
@@ -328,7 +331,15 @@ export default function DashboardAIB() {
 </td>
 
 <td style={td}>
-  {r.km}
+  {r.kmPartenza}
+</td>
+
+<td style={td}>
+  {r.kmArrivo}
+</td>
+
+<td style={td}>
+  {r.kmPercorsi}
 </td>
 
 <td style={td}>

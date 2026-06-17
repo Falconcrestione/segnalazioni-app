@@ -26,7 +26,8 @@ export default function ReportsPage() {
 
  const [importo, setImporto] = useState("");
 const [litri, setLitri] = useState("");
-const [km, setKm] = useState("");
+const [kmPartenza, setKmPartenza] = useState("");
+const [kmArrivo, setKmArrivo] = useState("");
 const [file, setFile] = useState<File | null>(null);
   useEffect(() => {
     loadMezzi();
@@ -75,11 +76,13 @@ const [file, setFile] = useState<File | null>(null);
 
       if (!litri)
         return alert("Inserisci litri");
-    if (!km)
-  return alert("Inserisci KM");
+    if (!kmPartenza)
+  return alert("Inserisci KM Partenza");
 
-      if (!file)
-        return alert("Carica scontrino");
+if (!kmArrivo)
+  return alert("Inserisci KM Arrivo");
+
+    
 
       const selected = squadre.find(
         (s) =>
@@ -89,15 +92,18 @@ const [file, setFile] = useState<File | null>(null);
       if (!selected)
         return alert("Squadra non trovata");
 
-      const storageRef = ref(
-        storage,
-        `scontrini_aib/${Date.now()}_${file.name}`
-      );
+      let fotoUrl = "";
 
-      await uploadBytes(storageRef, file);
+if (file) {
+  const storageRef = ref(
+    storage,
+    `scontrini_aib/${Date.now()}_${file.name}`
+  );
 
-      const fotoUrl =
-        await getDownloadURL(storageRef);
+  await uploadBytes(storageRef, file);
+
+  fotoUrl = await getDownloadURL(storageRef);
+}
 
       await addDoc(
         collection(db, "reports_aib"),
@@ -123,7 +129,9 @@ const [file, setFile] = useState<File | null>(null);
 
 litri: Number(litri),
 
-km: Number(km),
+kmPartenza: Number(kmPartenza),
+kmArrivo: Number(kmArrivo),
+kmPercorsi: Number(kmArrivo) - Number(kmPartenza),
 
 fotoUrl,
         }
@@ -136,7 +144,8 @@ fotoUrl,
       setSquadra("");
       setImporto("");
       setLitri("");
-      setKm("");
+     setKmPartenza("");
+setKmArrivo("");
       setFile(null);
     } catch (err) {
       console.error(err);
@@ -283,13 +292,24 @@ fotoUrl,
           }
           style={inputStyle}
         />
-        <label>KM mezzo</label>
+       <label>KM Partenza</label>
 
 <input
   type="number"
-  value={km}
+  value={kmPartenza}
   onChange={(e) =>
-    setKm(e.target.value)
+    setKmPartenza(e.target.value)
+  }
+  style={inputStyle}
+/>
+
+<label>KM Arrivo</label>
+
+<input
+  type="number"
+  value={kmArrivo}
+  onChange={(e) =>
+    setKmArrivo(e.target.value)
   }
   style={inputStyle}
 />
