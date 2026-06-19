@@ -26,8 +26,7 @@ export default function ReportsPage() {
 
  const [importo, setImporto] = useState("");
 const [litri, setLitri] = useState("");
-const [kmPartenza, setKmPartenza] = useState("");
-const [kmArrivo, setKmArrivo] = useState("");
+const [km, setKm] = useState("");
 const [file, setFile] = useState<File | null>(null);
   useEffect(() => {
     loadMezzi();
@@ -76,13 +75,11 @@ const [file, setFile] = useState<File | null>(null);
 
       if (!litri)
         return alert("Inserisci litri");
-    if (!kmPartenza)
-  return alert("Inserisci KM Partenza");
+    if (!km)
+  return alert("Inserisci KM");
 
-if (!kmArrivo)
-  return alert("Inserisci KM Arrivo");
-
-    
+      if (!file)
+        return alert("Carica scontrino");
 
       const selected = squadre.find(
         (s) =>
@@ -92,18 +89,15 @@ if (!kmArrivo)
       if (!selected)
         return alert("Squadra non trovata");
 
-      let fotoUrl = "";
+      const storageRef = ref(
+        storage,
+        `scontrini_aib/${Date.now()}_${file.name}`
+      );
 
-if (file) {
-  const storageRef = ref(
-    storage,
-    `scontrini_aib/${Date.now()}_${file.name}`
-  );
+      await uploadBytes(storageRef, file);
 
-  await uploadBytes(storageRef, file);
-
-  fotoUrl = await getDownloadURL(storageRef);
-}
+      const fotoUrl =
+        await getDownloadURL(storageRef);
 
       await addDoc(
         collection(db, "reports_aib"),
@@ -113,12 +107,8 @@ if (file) {
           identificativo_squadra:
             selected.identificativo_squadra,
 
-          tipoMezzo:
-            selected.tipoMezzo,
-
-          targa:
-            selected.targa,
-
+         tipoMezzo: selected.mezzo_attivo?.tipoMezzo || selected.tipoMezzo,
+targa: selected.mezzo_attivo?.targa || selected.targa,
           distretto:
             selected.distretto,
 
@@ -129,9 +119,7 @@ if (file) {
 
 litri: Number(litri),
 
-kmPartenza: Number(kmPartenza),
-kmArrivo: Number(kmArrivo),
-kmPercorsi: Number(kmArrivo) - Number(kmPartenza),
+km: Number(km),
 
 fotoUrl,
         }
@@ -144,8 +132,7 @@ fotoUrl,
       setSquadra("");
       setImporto("");
       setLitri("");
-     setKmPartenza("");
-setKmArrivo("");
+      setKm("");
       setFile(null);
     } catch (err) {
       console.error(err);
@@ -260,9 +247,7 @@ setKmArrivo("");
                 s.identificativo_squadra
               }
             >
-              {s.identificativo_squadra}
-              {" - "}
-              {s.targa}
+             {s.identificativo_squadra} - {s.mezzo_attivo?.targa || s.targa}
             </option>
           ))}
         </select>
@@ -292,24 +277,13 @@ setKmArrivo("");
           }
           style={inputStyle}
         />
-       <label>KM Partenza</label>
+        <label>KM mezzo</label>
 
 <input
   type="number"
-  value={kmPartenza}
+  value={km}
   onChange={(e) =>
-    setKmPartenza(e.target.value)
-  }
-  style={inputStyle}
-/>
-
-<label>KM Arrivo</label>
-
-<input
-  type="number"
-  value={kmArrivo}
-  onChange={(e) =>
-    setKmArrivo(e.target.value)
+    setKm(e.target.value)
   }
   style={inputStyle}
 />

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { db } from "../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import MapAIB from "./components/MapAIB";
+import { doc, updateDoc } from "firebase/firestore";
 
 export default function DashboardAIB() {
   const [mezzi, setMezzi] = useState<any[]>([]);
@@ -60,11 +61,25 @@ export default function DashboardAIB() {
     (acc, r) => acc + Number(r.importo || 0),
     0
   );
- const totaleKm = reports.reduce(
-  (acc, r) =>
-    acc + Number(r.kmPercorsi || 0),
+  const totaleKm = reports.reduce(
+  (acc, r) => acc + Number(r.km || 0),
   0
 );
+async function sostituisciMezzo(id: string) {
+  const targa = prompt("Nuova targa mezzo sostitutivo");
+  const tipoMezzo = prompt("Tipo mezzo (Pick-up / Autobotte)");
+
+  if (!targa || !tipoMezzo) return;
+
+  await updateDoc(doc(db, "postazioni_aib", id), {
+    mezzo_attivo: {
+      targa,
+      tipoMezzo,
+    },
+  });
+
+  await loadData();
+}
 
   return (
     <div
@@ -206,6 +221,7 @@ export default function DashboardAIB() {
                 <th style={th}>Comparto</th>
                 <th style={th}>Distretto</th>
                 <th style={th}>Comune</th>
+                 <th style={th}>Azioni</th>
               </tr>
             </thead>
 
@@ -216,11 +232,13 @@ export default function DashboardAIB() {
                     {m.identificativo_squadra}
                   </td>
 
-                  <td style={td}>{m.targa}</td>
+                 <td style={td}>
+  {m.mezzo_attivo?.targa || m.targa}
+</td>
 
-                  <td style={td}>
-                    {m.tipoMezzo}
-                  </td>
+<td style={td}>
+  {m.mezzo_attivo?.tipoMezzo || m.tipoMezzo}
+</td>
 
                   <td style={td}>
                     {m.comparto}
@@ -233,9 +251,24 @@ export default function DashboardAIB() {
                   <td style={td}>
                     {m.comune}
                   </td>
-                </tr>
-              ))}
-            </tbody>
+                  <td style={td}>
+        <button
+          onClick={() => sostituisciMezzo(m.id)}
+          style={{
+            background: "orange",
+            color: "white",
+            border: "none",
+            padding: "6px 10px",
+            borderRadius: 6,
+            cursor: "pointer",
+          }}
+        >
+          Sostituisci
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
           </table>
         </div>
       </div>
@@ -282,9 +315,7 @@ export default function DashboardAIB() {
                 <th style={th}>Comune</th>
                 <th style={th}>€</th>
 <th style={th}>Litri</th>
-<th style={th}>KM Partenza</th>
-<th style={th}>KM Arrivo</th>
-<th style={th}>KM Percorsi</th>
+<th style={th}>KM</th>
 <th style={th}>Foto</th>
               </tr>
             </thead>
@@ -331,15 +362,7 @@ export default function DashboardAIB() {
 </td>
 
 <td style={td}>
-  {r.kmPartenza}
-</td>
-
-<td style={td}>
-  {r.kmArrivo}
-</td>
-
-<td style={td}>
-  {r.kmPercorsi}
+  {r.km}
 </td>
 
 <td style={td}>
@@ -413,4 +436,3 @@ const td = {
   padding: "10px",
   borderBottom: "1px solid #ddd",
 };
-
