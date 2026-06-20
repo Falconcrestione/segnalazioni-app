@@ -10,10 +10,19 @@ export default function DashboardAIB() {
   const [mezzi, setMezzi] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [filtroDistretto, setFiltroDistretto] = useState("");
+const [filtroComune, setFiltroComune] = useState("");
+const [filtroSquadra, setFiltroSquadra] = useState("");
 
-  useEffect(() => {
+ useEffect(() => {
+  loadData();
+
+  const interval = setInterval(() => {
     loadData();
-  }, []);
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, []);
 
   async function loadData() {
     try {
@@ -51,20 +60,56 @@ export default function DashboardAIB() {
       .toLowerCase()
       .includes(search.toLowerCase())
   );
-
-  const totaleLitri = reports.reduce(
-    (acc, r) => acc + Number(r.litri || 0),
-    0
+  const reportsFiltrati = reports.filter((r) => {
+  return (
+    (!filtroDistretto ||
+      String(r.distretto) === String(filtroDistretto)) &&
+    (!filtroComune ||
+      String(r.comune) === String(filtroComune)) &&
+    (!filtroSquadra ||
+      String(r.identificativo_squadra) === String(filtroSquadra))
   );
+});
 
-  const totaleEuro = reports.reduce(
-    (acc, r) => acc + Number(r.importo || 0),
-    0
-  );
-  const totaleKm = reports.reduce(
-  (acc, r) => acc + Number(r.km || 0),
+  const totaleLitri = reportsFiltrati.reduce(
+  (acc, r) => acc + Number(r.litri || 0),
   0
 );
+
+const totaleEuro = reportsFiltrati.reduce(
+  (acc, r) => acc + Number(r.importo || 0),
+  0
+);
+
+const totaleKm = reportsFiltrati.reduce(
+  (acc, r) => acc + Number(r.kmPercorsi || 0),
+  0
+);
+
+const comuniFiltrati = [
+  ...new Set(
+    reports
+      .filter(
+        (r) =>
+          !filtroDistretto ||
+          String(r.distretto) === String(filtroDistretto)
+      )
+      .map((r) => r.comune)
+  ),
+];
+const squadreFiltrate = [
+  ...new Set(
+    reports
+      .filter(
+        (r) =>
+          (!filtroDistretto ||
+            String(r.distretto) === String(filtroDistretto)) &&
+          (!filtroComune ||
+            r.comune === filtroComune)
+      )
+      .map((r) => r.identificativo_squadra)
+  ),
+];
 async function sostituisciMezzo(id: string) {
   const targa = prompt("Nuova targa mezzo sostitutivo");
   const tipoMezzo = prompt("Tipo mezzo (Pick-up / Autobotte)");
@@ -283,7 +328,72 @@ async function sostituisciMezzo(id: string) {
           boxShadow:
             "0 2px 10px rgba(0,0,0,0.08)",
         }}
+        
       >
+      <div
+  style={{
+    display: "flex",
+    gap: 10,
+    marginBottom: 15,
+    flexWrap: "wrap",
+  }}
+>
+  <select
+    value={filtroDistretto}
+   onChange={(e) => {
+  setFiltroDistretto(e.target.value);
+  setFiltroComune("");
+  setFiltroSquadra("");
+}}
+  >
+    <option value="">
+      Tutti i distretti
+    </option>
+
+    {[...new Set(
+      reports.map((r) => r.distretto)
+    )].map((d) => (
+      <option key={d} value={d}>
+        Distretto {d}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={filtroComune}
+   onChange={(e) => {
+  setFiltroComune(e.target.value);
+  setFiltroSquadra("");
+}}
+  >
+    <option value="">
+      Tutti i comuni
+    </option>
+
+    {comuniFiltrati.map((c) => (
+      <option key={c} value={c}>
+        {c}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={filtroSquadra}
+    onChange={(e) =>
+      setFiltroSquadra(e.target.value)
+    }
+  >
+    <option value="">
+      Tutte le squadre
+    </option>
+
+    {squadreFiltrate.map((s) => (
+      <option key={s} value={s}>
+        {s}
+      </option>
+    ))}
+  </select>
+</div>
         <h2>⛽ Reports Carburante</h2>
 
         <div
@@ -315,13 +425,15 @@ async function sostituisciMezzo(id: string) {
                 <th style={th}>Comune</th>
                 <th style={th}>€</th>
 <th style={th}>Litri</th>
-<th style={th}>KM</th>
+<th style={th}>KM Partenza</th>
+<th style={th}>KM Arrivo</th>
+<th style={th}>KM Percorsi</th>
 <th style={th}>Foto</th>
               </tr>
             </thead>
 
             <tbody>
-              {reports.map((r) => (
+             {reportsFiltrati.map((r) => (
                 <tr key={r.id}>
                   <td style={td}>
                     {r.createdAt?.toDate
@@ -362,7 +474,15 @@ async function sostituisciMezzo(id: string) {
 </td>
 
 <td style={td}>
-  {r.km}
+  {r.kmPartenza}
+</td>
+
+<td style={td}>
+  {r.kmArrivo}
+</td>
+
+<td style={td}>
+  {r.kmPercorsi}
 </td>
 
 <td style={td}>
