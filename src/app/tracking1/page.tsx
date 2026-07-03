@@ -132,7 +132,7 @@ const WEBAPP_URL =
 
 // UTENTI CON DISTRICT
 const USERS = [
-  { username: "superuser", password: "superpass", district: "ALL" },
+  { username: "superuser", password: "superpass170@", district: "ALL" },
   { username: "user0", password: "pass0@@RbUN", district: "DIST1" },
   { username: "user0", password: "pass0@@RbUN", district: "DIST2" },
   { username: "user0", password: "pass0@@RbUN", district: "DIST3" },
