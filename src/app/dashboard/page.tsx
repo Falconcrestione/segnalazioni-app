@@ -125,6 +125,29 @@ async function sostituisciMezzo(id: string) {
 
   await loadData();
 }
+async function modificaReport(report: any) {
+  const importo = prompt("Importo (€)", report.importo);
+  if (importo === null) return;
+
+  const litri = prompt("Litri", report.litri);
+  if (litri === null) return;
+
+  const kmPartenza = prompt("KM Partenza", report.kmPartenza);
+  if (kmPartenza === null) return;
+
+  const kmArrivo = prompt("KM Arrivo", report.kmArrivo);
+  if (kmArrivo === null) return;
+
+  await updateDoc(doc(db, "reports_aib", report.id), {
+    importo: Number(importo),
+    litri: Number(litri),
+    kmPartenza: Number(kmPartenza),
+    kmArrivo: Number(kmArrivo),
+    kmPercorsi: Number(kmArrivo) - Number(kmPartenza),
+  });
+
+  loadData();
+}
 
   return (
     <div
@@ -429,6 +452,7 @@ async function sostituisciMezzo(id: string) {
 <th style={th}>KM Arrivo</th>
 <th style={th}>KM Percorsi</th>
 <th style={th}>Foto</th>
+<th style={th}>Azioni</th>
               </tr>
             </thead>
 
@@ -497,6 +521,21 @@ async function sostituisciMezzo(id: string) {
                       "-"
                     )}
                   </td>
+                  <td style={td}>
+  <button
+    onClick={() => modificaReport(r)}
+    style={{
+      background: "#0070f3",
+      color: "#fff",
+      border: "none",
+      padding: "6px 12px",
+      borderRadius: 6,
+      cursor: "pointer",
+    }}
+  >
+    Modifica
+  </button>
+</td>
                 </tr>
               ))}
             </tbody>
