@@ -172,6 +172,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>Modello</th>
   <th>Stato Assegnazione</th>
   <th>Stato Veicolo</th>
+  <th>Sostituto</th>
   <th>Comparto</th>
   <th>Distretto</th>
   <th>Gestione</th>
@@ -359,6 +360,54 @@ width:400px;
 </button>
 
 <button onclick="chiudiNuovoVeicolo()">
+❌ Chiudi
+</button>
+
+</div>
+<div id="modalSostituzione" style="
+display:none;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 0 20px rgba(0,0,0,.3);
+z-index:999;
+width:420px;
+">
+
+<h3>🚗 Veicolo sostitutivo</h3>
+
+<input type="hidden" id="veicoloRiparazioneId">
+
+<p>
+<b>Veicolo in riparazione:</b><br>
+<span id="nomeVeicoloRiparazione"></span>
+</p>
+
+<label>Veicolo sostitutivo</label><br>
+
+<select id="listaSostitutivi">
+<option value="">Seleziona...</option>
+</select>
+
+<br><br>
+
+<label>Motivo riparazione</label><br>
+
+<input
+id="motivoRiparazione"
+style="width:100%;">
+
+<br><br>
+
+<button onclick="salvaSostituzione()">
+💾 Salva
+</button>
+
+<button onclick="chiudiSostituzione()">
 ❌ Chiudi
 </button>
 
@@ -1131,6 +1180,15 @@ veicoliBody.innerHTML += `
     ${v.statoVeicolo || "Operativo"}
   </span>
 </td>
+<td>
+${
+ v.veicoloSostituto
+ ?
+ "🚗 " + v.veicoloSostituto
+ :
+ "-"
+}
+</td>
 
 <td>${v.comparto || "-"}</td>
 <td>Distretto ${v.distretto}</td>
@@ -1166,6 +1224,7 @@ style="background:#dc3545;color:white;margin-bottom:5px;">
   style="background:#6c757d;color:white;margin-top:5px;">
   🔄 Cambia Stato
 </button>
+
   </td>
 </tr>
 `;
@@ -1286,19 +1345,298 @@ async function toggleStatoVeicolo(id, statoAttuale){
     ? "In riparazione"
     : "Operativo";
 
-  if(!confirm("Vuoi cambiare lo stato del veicolo in '" + nuovoStato + "'?")) return;
 
-  try{
-    await db.collection("veicoli").doc(id).update({
-      statoVeicolo: nuovoStato
+  if(nuovoStato === "In riparazione"){
+
+
+    const veicoloDoc = await db.collection("veicoli").doc(id).get();
+    const veicolo = veicoloDoc.data();
+
+
+    const snap = await db.collection("veicoli")
+      .where("distretto","==",veicolo.distretto)
+      .get();
+
+
+    let disponibili = [];
+
+
+    snap.forEach(doc=>{
+
+      const v = doc.data();
+
+
+      if(
+        doc.id !== id &&
+        v.statoVeicolo !== "In riparazione"
+      ){
+
+        disponibili.push({
+
+          id: doc.id,
+
+          testo:
+          v.targa + " - " + v.modello,
+
+          distretto:
+          v.distretto
+
+        });
+
+      }
+
     });
 
-    alert("Stato aggiornato a: " + nuovoStato);
+
+
+    let elenco = disponibili.map(
+
+      (v,i)=>
+      (i+1)+") "+v.testo
+
+    ).join("\n");
+
+
+    let scelta = prompt(
+
+      "Seleziona il sostituto:\n\n" +
+
+      (elenco || "Nessun veicolo disponibile") +
+
+      "\n\n0) Inserisci veicolo da altro distretto"
+
+    );
+
+
+
+    if(scelta === null){
+      return;
+    }
+
+
+
+    // ==============================
+    // SOSTITUTO ESTERNO
+    // ==============================
+
+    if(Number(scelta) === 0){
+
+
+      let targaManuale = prompt(
+        "Inserisci targa veicolo sostitutivo:"
+      );
+
+
+      if(!targaManuale){
+
+        alert("Targa obbligatoria");
+        return;
+
+      }
+
+
+
+      let distrettoManuale = prompt(
+        "Inserisci distretto provenienza:"
+      );
+
+
+      if(!distrettoManuale){
+
+        alert("Distretto obbligatorio");
+        return;
+
+      }
+
+
+
+      await db.collection("veicoli").doc(id).update({
+
+        statoVeicolo:"In riparazione",
+
+        veicoloSostitutoId:"ESTERNO",
+
+        veicoloSostituto:
+
+        targaManuale.toUpperCase()
+        +
+        " - Distretto "
+        +
+        distrettoManuale
+
+      });
+
+
+
+      await db.collection("sostituzioni_veicoli").add({
+
+        veicoloGuastoId:id,
+
+        targaGuasto:
+        veicolo.targa,
+
+        veicoloSostitutoId:
+        "ESTERNO",
+
+        targaSostituto:
+        targaManuale.toUpperCase(),
+
+        distretto:
+        veicolo.distretto,
+
+        distrettoSostituto:
+        Number(distrettoManuale),
+
+        stato:
+        "ATTIVA",
+
+        dataInizio:
+        firebase.firestore.Timestamp.now()
+
+      });
+
+
+
+      alert(
+        "Veicolo in riparazione.\nSostituto esterno: "
+        +
+        targaManuale.toUpperCase()
+      );
+
+
+      return;
+
+    }
+
+
+
+    const indice = Number(scelta)-1;
+
+
+
+    if(
+      isNaN(indice) ||
+      !disponibili[indice]
+    ){
+
+      alert("Scelta non valida");
+      return;
+
+    }
+
+
+
+
+    // ==============================
+    // SOSTITUTO STESSO DISTRETTO
+    // ==============================
+
+
+    await db.collection("veicoli").doc(id).update({
+
+      statoVeicolo:"In riparazione",
+
+      veicoloSostitutoId:
+      disponibili[indice].id,
+
+      veicoloSostituto:
+      disponibili[indice].testo
+
+    });
+
+
+
+    await db.collection("sostituzioni_veicoli").add({
+
+      veicoloGuastoId:id,
+
+      targaGuasto:
+      veicolo.targa,
+
+      veicoloSostitutoId:
+      disponibili[indice].id,
+
+      targaSostituto:
+      disponibili[indice].testo,
+
+      distretto:
+      veicolo.distretto,
+
+      distrettoSostituto:
+      disponibili[indice].distretto,
+
+      stato:
+      "ATTIVA",
+
+      dataInizio:
+      firebase.firestore.Timestamp.now()
+
+    });
+
+
+
+    alert(
+      "Veicolo in riparazione.\nSostituito con: "
+      +
+      disponibili[indice].testo
+    );
+
+
   }
-  catch(err){
-    console.error(err);
-    alert("Errore aggiornamento stato");
+
+
+
+  // ==============================
+  // RITORNO OPERATIVO
+  // ==============================
+
+  else {
+
+
+    await db.collection("veicoli").doc(id).update({
+
+      statoVeicolo:"Operativo",
+
+      veicoloSostitutoId:"",
+
+      veicoloSostituto:""
+
+    });
+
+
+
+    const storico = await db.collection("sostituzioni_veicoli")
+
+      .where("veicoloGuastoId","==",id)
+
+      .where("stato","==","ATTIVA")
+
+      .get();
+
+
+
+    if(!storico.empty){
+
+
+      await storico.docs[0].ref.update({
+
+        stato:"CHIUSA",
+
+        dataFine:
+        firebase.firestore.Timestamp.now()
+
+      });
+
+
+    }
+
+
+
+    alert("Veicolo tornato operativo");
+
+
   }
+
 }
 function exportReportsExcel() {
   if (!reportsCache || reportsCache.length === 0) {
@@ -2209,6 +2547,18 @@ async function exportRichiesteExcel() {
       err.message
     );
   }
+}
+function apriSostituzione(id){
+
+    document.getElementById("modalSostituzione").style.display = "block";
+
+    document.getElementById("veicoloRiparazioneId").value = id;
+
+}
+function chiudiSostituzione(){
+
+    document.getElementById("modalSostituzione").style.display = "none";
+
 }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
 

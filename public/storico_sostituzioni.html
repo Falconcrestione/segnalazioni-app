@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Storico Sostituzioni</title>
+
+<style>
+
+body{
+  font-family: Arial;
+  padding:20px;
+  background:#f4f4f4;
+}
+
+
+h2{
+  margin-bottom:20px;
+}
+
+
+table{
+
+  width:100%;
+  border-collapse:collapse;
+  background:white;
+
+}
+
+
+th{
+
+  background:#343a40;
+  color:white;
+  padding:10px;
+
+}
+
+
+td{
+
+  padding:10px;
+  border-bottom:1px solid #ddd;
+
+}
+
+
+.badge{
+
+  padding:5px 10px;
+  border-radius:6px;
+  color:white;
+  font-weight:bold;
+
+}
+
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<h2>🔄 Storico Sostituzioni Veicoli</h2>
+
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>Data Inizio</th>
+
+<th>Distretto Guasto</th>
+
+<th>Veicolo Guasto</th>
+
+<th>Veicolo Sostituto</th>
+
+<th>Distretto Sostituto</th>
+
+<th>Stato</th>
+
+</tr>
+
+</thead>
+
+
+<tbody id="storicoBody">
+
+</tbody>
+
+
+</table>
+
+
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+
+
+<script>
+
+
+firebase.initializeApp({
+
+  apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
+
+  authDomain: "attendance-2980e.firebaseapp.com",
+
+  projectId: "attendance-2980e",
+
+  storageBucket:"attendance-2980e.appspot.com"
+
+});
+
+
+const db = firebase.firestore();
+
+
+
+
+
+function caricaStorico(){
+
+
+const body = document.getElementById("storicoBody");
+
+
+
+db.collection("sostituzioni_veicoli")
+.orderBy("dataInizio","desc")
+.onSnapshot(snapshot=>{
+
+
+body.innerHTML="";
+
+
+
+snapshot.forEach(doc=>{
+
+
+const s = doc.data();
+
+
+
+body.innerHTML += `
+
+<tr>
+
+
+<td>
+
+${
+s.dataInizio
+?
+s.dataInizio
+.toDate()
+.toLocaleString("it-IT")
+:
+"-"
+}
+
+</td>
+
+
+
+<td>
+
+Distretto ${s.distretto || "-"}
+
+</td>
+
+
+
+<td>
+
+${s.targaGuasto || "-"}
+
+</td>
+
+
+
+<td>
+
+${s.targaSostituto || "-"}
+
+</td>
+
+
+
+<td>
+
+Distretto ${s.distrettoSostituto || "-"}
+
+</td>
+
+
+
+<td>
+
+<span 
+class="badge"
+
+style="
+background:
+${
+s.stato === "ATTIVA"
+?
+"#ffc107;color:black"
+:
+"#28a745"
+};
+">
+
+${s.stato || "-"}
+
+</span>
+
+
+</td>
+
+
+</tr>
+
+
+`;
+
+
+});
+
+
+}, errore => {
+
+
+console.error(
+"Errore caricamento storico:",
+errore
+);
+
+
+alert(
+"Errore lettura storico sostituzioni"
+);
+
+
+});
+
+
+}
+
+
+
+caricaStorico();
+
+
+</script>
+
+
+</body>
+
+</html>

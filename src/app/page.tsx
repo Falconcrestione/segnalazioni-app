@@ -27,6 +27,23 @@ export default function Home() {
     alert("Password errata!");
   }
 }
+const apriStoricoSostituzioni = () => {
+
+  const password = prompt(
+    "Inserisci la password:"
+  );
+
+  if (password !== "CalabriaVerde2026") {
+    alert("Password errata");
+    return;
+  }
+
+  window.open(
+    "/storico_sostituzioni.html",
+    "_blank"
+  );
+
+};
 
 
   return (
@@ -80,7 +97,13 @@ export default function Home() {
         <button style={btn} onClick={goToTracking}>
           📍 TRACKING GPS
         </button>
-
+       <button
+  style={btn}
+  onClick={apriStoricoSostituzioni}
+>
+  📚 Storico Sostituzioni Veicoli
+</button>
+        
         <a href="/dashboard.html" target="_blank" rel="noopener noreferrer">
           <button style={btn}>📊 DASHBOARD1</button>
         </a>
