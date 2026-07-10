@@ -202,6 +202,41 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <button onclick="exportRichiesteExcel()">
   📥 Scarica Richieste Approvate
 </button>
+<h2>🔧 Manutenzione Mensile Veicoli</h2>
+<div style="margin:10px 0;">
+
+<select id="filtroManVeicolo">
+<option value="">Tutti i veicoli</option>
+</select>
+
+<input 
+type="month" 
+id="filtroManMese">
+
+<button onclick="exportManutenzioniExcel()">
+📊 Esporta Storico Excel
+</button>
+
+</div>
+
+<div class="table-container">
+<table>
+
+<thead>
+<tr>
+<th>Targa</th>
+<th>Modello</th>
+<th>Comparto</th>
+<th>Ultima manutenzione</th>
+<th>Stato</th>
+<th>Azione</th>
+</tr>
+</thead>
+
+<tbody id="manutenzioniBody"></tbody>
+
+</table>
+</div>
 
 <h2>📨 Richieste Veicoli</h2>
 <div class="table-container">
@@ -408,6 +443,139 @@ style="width:100%;">
 </button>
 
 <button onclick="chiudiSostituzione()">
+❌ Chiudi
+</button>
+
+</div>
+<div id="modalManutenzione" style="
+display:none;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 0 20px rgba(0,0,0,.3);
+z-index:999;
+width:700px;
+max-height:90vh;
+overflow-y:auto;
+">
+
+<h3>🔧 Manutenzione Veicolo</h3>
+
+<input type="hidden" id="manutenzioneId">
+<input type="hidden" id="manutenzioneVeicoloId">
+
+<label>Targa</label><br>
+<input id="manTarga" disabled style="width:100%;"><br><br>
+
+<label>Modello</label><br>
+<input id="manModello" disabled style="width:100%;"><br><br>
+
+<label>Data controllo</label><br>
+<input type="date" id="manData"><br><br>
+
+<label>KM</label><br>
+<input type="number" id="manKm"><br><br>
+
+<h4>Controlli</h4>
+
+<label><input type="checkbox" id="olioMotore"> Olio motore</label><br>
+
+<label><input type="checkbox" id="filtroOlio"> Filtro olio</label><br>
+
+<label><input type="checkbox" id="impiantoLuci"> Impianto luci</label><br>
+
+<label><input type="checkbox" id="cambioOlio"> Cambio olio</label><br>
+
+<label><input type="checkbox" id="olioFreni"> Olio freni</label><br>
+
+<label><input type="checkbox" id="pastiglieFreni"> Pastiglie freni</label><br>
+
+<label><input type="checkbox" id="filtroBenzina"> Filtro benzina</label><br>
+
+<label><input type="checkbox" id="filtroAria"> Filtro aria</label><br>
+
+<label><input type="checkbox" id="candele"> Candele</label><br>
+
+<label><input type="checkbox" id="liquidoRaffreddamento"> Liquido raffreddamento</label><br>
+
+<label><input type="checkbox" id="pneumatici"> Pneumatici</label><br>
+
+<label><input type="checkbox" id="carburazione"> Carburazione</label><br>
+
+<label><input type="checkbox" id="caviGas"> Cavi gas</label><br>
+
+<label><input type="checkbox" id="batteria"> Batteria</label><br>
+
+<label><input type="checkbox" id="ammortizzatori"> Ammortizzatori</label><br>
+
+<label><input type="checkbox" id="serraggioBulloneria"> Serraggio bulloneria</label><br><br>
+
+<label>Controlli effettuati / Note</label><br>
+
+<textarea
+id="manNote"
+style="width:100%;height:120px;"></textarea>
+
+<br><br>
+
+<button onclick="salvaManutenzione()">
+💾 Salva
+</button>
+
+<button onclick="chiudiModalManutenzione()">
+❌ Chiudi
+</button>
+
+</div>
+<!-- ================= STORICO MANUTENZIONI ================= -->
+
+<div id="modalStoricoManutenzione"
+style="
+display:none;
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 0 20px rgba(0,0,0,.3);
+z-index:1000;
+width:800px;
+max-height:90vh;
+overflow:auto;
+">
+
+<h3>📋 Storico manutenzioni</h3>
+
+<div id="storicoTitolo"></div>
+
+<br>
+
+<table border="1" width="100%">
+
+<thead>
+<tr>
+<th>Data</th>
+<th>KM</th>
+<th>Controlli</th>
+<th>Note</th>
+</tr>
+</thead>
+
+<tbody id="storicoManutenzioniBody">
+
+</tbody>
+
+</table>
+
+<br>
+
+<button onclick="chiudiStoricoManutenzione()">
 ❌ Chiudi
 </button>
 
@@ -2394,12 +2562,663 @@ function loadModificheReports(){
     });
 
 }
+async function loadManutenzioni(){
+
+  if(!accessGranted) return;
+
+  const body = document.getElementById("manutenzioniBody");
+
+  body.innerHTML = "";
+
+  const oggi = new Date();
+  const mese = oggi.getMonth() + 1;
+  const anno = oggi.getFullYear();
+
+  try{
+
+    const veicoliSnap = await db.collection("veicoli").get();
+
+    for(const doc of veicoliSnap.docs){
+
+      const v = doc.data();
+
+      if(typeof v.distretto !== "number") continue;
+
+      const active = distrettoAttivo();
+
+      if(active !== "ALL" && v.distretto !== active){
+        continue;
+      }
+
+      // cerca manutenzione del mese
+      const manutenzioneSnap = await db.collection("manutenzioni")
+        .where("veicoloId","==",doc.id)
+        .where("mese","==",mese)
+        .where("anno","==",anno)
+        .get();
+
+      let ultima = "-";
+      let stato = "🔴 Da compilare";
+      let bottone = `
+        <button onclick="apriManutenzione('${doc.id}')">
+        ➕ Compila
+        </button>
+      `;
+
+      if(!manutenzioneSnap.empty){
+
+        const m = manutenzioneSnap.docs[0].data();
+
+        ultima = m.data
+          ? m.data.toDate().toLocaleDateString("it-IT")
+          : "-";
+
+        stato = "🟢 Compilata";
+
+      bottone = `
+<button onclick="apriManutenzione('${doc.id}')">
+🔧 Modifica
+</button>
+
+<button onclick="apriStoricoManutenzione('${doc.id}')">
+📋 Storico
+</button>
+`;
+      }
+
+      body.innerHTML += `
+      <tr>
+
+        <td>${v.targa}</td>
+
+        <td>${v.modello}</td>
+
+        <td>${v.comparto}</td>
+
+        <td>${ultima}</td>
+
+        <td>${stato}</td>
+
+        <td>${bottone}</td>
+
+      </tr>
+      `;
+
+    }
+
+  }catch(err){
+
+    console.error(err);
+
+    alert(err.message);
+
+  }
+
+}
+async function caricaFiltroManutenzioni(){
+
+  const select =
+  document.getElementById("filtroManVeicolo");
+
+  if(!select) return;
+
+  select.innerHTML =
+  `<option value="">Tutti i veicoli</option>`;
+
+
+  const snap =
+  await db.collection("veicoli").get();
+
+
+  snap.forEach(doc=>{
+
+    const v = doc.data();
+
+    if(typeof v.distretto !== "number") return;
+
+
+    const active = distrettoAttivo();
+
+
+    if(
+      active !== "ALL" &&
+      v.distretto !== active
+    ){
+      return;
+    }
+
+
+    select.innerHTML += `
+    <option value="${doc.id}">
+    ${v.targa} - ${v.modello}
+    </option>
+    `;
+
+  });
+
+}
+function apriManutenzione(veicoloId){
+
+  db.collection("veicoli")
+  .doc(veicoloId)
+  .get()
+  .then(async doc=>{
+
+    if(!doc.exists){
+      alert("Veicolo non trovato");
+      return;
+    }
+
+    const v = doc.data();
+
+
+    document.getElementById("modalManutenzione")
+      .style.display="block";
+
+
+    document.getElementById("manutenzioneVeicoloId")
+      .value = veicoloId;
+
+
+    document.getElementById("manTarga")
+      .value = v.targa || "";
+
+
+    document.getElementById("manModello")
+      .value = v.modello || "";
+
+
+    // reset campi
+    document.getElementById("manData").value =
+      new Date().toISOString().slice(0,10);
+
+    document.getElementById("manKm").value="";
+
+    document.querySelectorAll(
+      "#modalManutenzione input[type=checkbox]"
+    ).forEach(c=>{
+      c.checked=false;
+    });
+
+
+    document.getElementById("manNote").value="";
+
+
+    // controllo se esiste già
+    const oggi = new Date();
+
+    const snap = await db.collection("manutenzioni")
+      .where("veicoloId","==",veicoloId)
+      .where("mese","==",oggi.getMonth()+1)
+      .where("anno","==",oggi.getFullYear())
+      .get();
+
+
+    if(!snap.empty){
+
+      const m = snap.docs[0].data();
+
+
+      document.getElementById("manData").value =
+        m.data.toDate()
+        .toISOString()
+        .slice(0,10);
+
+
+      document.getElementById("manKm").value =
+        m.km || "";
+
+
+      document.getElementById("olioMotore").checked =
+        m.olioMotore || false;
+
+      document.getElementById("filtroOlio").checked =
+        m.filtroOlio || false;
+
+      document.getElementById("impiantoLuci").checked =
+        m.impiantoLuci || false;
+
+      document.getElementById("cambioOlio").checked =
+        m.cambioOlio || false;
+
+      document.getElementById("olioFreni").checked =
+        m.olioFreni || false;
+
+      document.getElementById("pastiglieFreni").checked =
+        m.pastiglieFreni || false;
+
+      document.getElementById("filtroBenzina").checked =
+        m.filtroBenzina || false;
+
+      document.getElementById("filtroAria").checked =
+        m.filtroAria || false;
+
+      document.getElementById("candele").checked =
+        m.candele || false;
+
+      document.getElementById("liquidoRaffreddamento").checked =
+        m.liquidoRaffreddamento || false;
+
+      document.getElementById("pneumatici").checked =
+        m.pneumatici || false;
+
+      document.getElementById("carburazione").checked =
+        m.carburazione || false;
+
+      document.getElementById("caviGas").checked =
+        m.caviGas || false;
+
+      document.getElementById("batteria").checked =
+        m.batteria || false;
+
+      document.getElementById("ammortizzatori").checked =
+        m.ammortizzatori || false;
+
+      document.getElementById("serraggioBulloneria").checked =
+        m.serraggioBulloneria || false;
+
+
+      document.getElementById("manNote").value =
+        m.note || "";
+
+    }
+
+  });
+
+}
+
+
+function chiudiModalManutenzione(){
+
+  document.getElementById("modalManutenzione")
+  .style.display="none";
+
+}
+async function salvaManutenzione(){
+
+  const veicoloId =
+    document.getElementById("manutenzioneVeicoloId").value;
+
+
+  if(!veicoloId){
+    alert("Veicolo non selezionato");
+    return;
+  }
+
+
+  try{
+
+    const veicoloDoc =
+      await db.collection("veicoli")
+      .doc(veicoloId)
+      .get();
+
+
+    if(!veicoloDoc.exists){
+      alert("Veicolo non trovato");
+      return;
+    }
+
+
+    const v = veicoloDoc.data();
+
+
+    const dataInput =
+      document.getElementById("manData").value;
+
+
+    if(!dataInput){
+      alert("Inserire la data");
+      return;
+    }
+
+
+    const data =
+      new Date(dataInput);
+
+
+    const mese =
+      data.getMonth()+1;
+
+
+    const anno =
+      data.getFullYear();
+
+
+
+    const dati = {
+
+
+      veicoloId: veicoloId,
+
+      targa:
+        v.targa || "",
+
+      modello:
+        v.modello || "",
+
+      comparto:
+        v.comparto || "",
+
+      distretto:
+        v.distretto,
+
+
+      data:
+        firebase.firestore.Timestamp.fromDate(data),
+
+
+      mese,
+      anno,
+
+
+      km:
+        Number(
+          document.getElementById("manKm").value
+        ) || 0,
+
+
+
+      olioMotore:
+        document.getElementById("olioMotore").checked,
+
+
+      filtroOlio:
+        document.getElementById("filtroOlio").checked,
+
+
+      impiantoLuci:
+        document.getElementById("impiantoLuci").checked,
+
+
+      cambioOlio:
+        document.getElementById("cambioOlio").checked,
+
+
+      olioFreni:
+        document.getElementById("olioFreni").checked,
+
+
+      pastiglieFreni:
+        document.getElementById("pastiglieFreni").checked,
+
+
+      filtroBenzina:
+        document.getElementById("filtroBenzina").checked,
+
+
+      filtroAria:
+        document.getElementById("filtroAria").checked,
+
+
+      candele:
+        document.getElementById("candele").checked,
+
+
+      liquidoRaffreddamento:
+        document.getElementById("liquidoRaffreddamento").checked,
+
+
+      pneumatici:
+        document.getElementById("pneumatici").checked,
+
+
+      carburazione:
+        document.getElementById("carburazione").checked,
+
+
+      caviGas:
+        document.getElementById("caviGas").checked,
+
+
+      batteria:
+        document.getElementById("batteria").checked,
+
+
+      ammortizzatori:
+        document.getElementById("ammortizzatori").checked,
+
+
+      serraggioBulloneria:
+        document.getElementById("serraggioBulloneria").checked,
+
+
+      note:
+        document.getElementById("manNote").value,
+
+
+      aggiornatoAt:
+        firebase.firestore.Timestamp.now()
+
+    };
+
+
+
+    // controlla se esiste già manutenzione mese corrente
+
+    const esistente =
+      await db.collection("manutenzioni")
+      .where("veicoloId","==",veicoloId)
+      .where("mese","==",mese)
+      .where("anno","==",anno)
+      .get();
+
+
+
+    if(!esistente.empty){
+
+      // aggiorna quella esistente
+
+      await esistente.docs[0].ref.update(dati);
+
+
+    }else{
+
+
+      // crea nuova
+
+      dati.creatoAt =
+        firebase.firestore.Timestamp.now();
+
+
+      await db.collection("manutenzioni")
+      .add(dati);
+
+    }
+
+
+
+    alert("Manutenzione salvata correttamente ✅");
+
+
+    chiudiModalManutenzione();
+
+
+    loadManutenzioni();
+
+
+
+  }catch(err){
+
+    console.error(err);
+
+    alert(
+      "Errore salvataggio manutenzione: "
+      + err.message
+    );
+
+  }
+
+}
+async function apriStoricoManutenzione(veicoloId){
+
+  const modal =
+    document.getElementById("modalStoricoManutenzione");
+
+  const body =
+    document.getElementById("storicoManutenzioniBody");
+
+  body.innerHTML="";
+
+
+  const veicolo =
+    await db.collection("veicoli")
+    .doc(veicoloId)
+    .get();
+
+
+  if(!veicolo.exists){
+    alert("Veicolo non trovato");
+    return;
+  }
+
+
+  const v = veicolo.data();
+
+
+  document.getElementById("storicoTitolo")
+  .innerHTML =
+  `
+  <b>
+  ${v.targa || ""}
+  - 
+  ${v.modello || ""}
+  </b>
+  `;
+
+
+
+  const snap =
+    await db.collection("manutenzioni")
+    .where("veicoloId","==",veicoloId)
+    .get();
+
+
+
+  if(snap.empty){
+
+    body.innerHTML=
+    `
+    <tr>
+    <td colspan="4">
+    Nessuna manutenzione presente
+    </td>
+    </tr>
+    `;
+
+  }
+
+
+  let lista=[];
+
+
+  snap.forEach(doc=>{
+
+    lista.push(doc.data());
+
+  });
+
+
+
+  // più recente prima
+
+  lista.sort((a,b)=>{
+
+    return b.data.toDate()
+    -
+    a.data.toDate();
+
+  });
+
+
+
+  lista.forEach(m=>{
+
+
+    let controlli=[];
+
+
+    if(m.olioMotore) controlli.push("Olio motore");
+    if(m.filtroOlio) controlli.push("Filtro olio");
+    if(m.impiantoLuci) controlli.push("Impianto luci");
+    if(m.cambioOlio) controlli.push("Cambio olio");
+    if(m.olioFreni) controlli.push("Olio freni");
+    if(m.pastiglieFreni) controlli.push("Pastiglie freni");
+    if(m.filtroBenzina) controlli.push("Filtro benzina");
+    if(m.filtroAria) controlli.push("Filtro aria");
+    if(m.candele) controlli.push("Candele");
+    if(m.liquidoRaffreddamento) controlli.push("Liquido raffreddamento");
+    if(m.pneumatici) controlli.push("Pneumatici");
+    if(m.carburazione) controlli.push("Carburazione");
+    if(m.caviGas) controlli.push("Cavi gas");
+    if(m.batteria) controlli.push("Batteria");
+    if(m.ammortizzatori) controlli.push("Ammortizzatori");
+    if(m.serraggioBulloneria) controlli.push("Serraggio bulloneria");
+
+
+    body.innerHTML +=
+    `
+    <tr>
+
+    <td>
+    ${
+      m.data
+      ?
+      m.data.toDate()
+      .toLocaleDateString("it-IT")
+      :
+      "-"
+    }
+    </td>
+
+
+    <td>
+    ${m.km || "-"}
+    </td>
+
+
+    <td>
+    ${controlli.join(", ")}
+    </td>
+
+
+    <td>
+    ${m.note || "-"}
+    </td>
+
+
+    </tr>
+    `;
+
+
+  });
+
+
+
+  modal.style.display="block";
+
+
+}
+
+
+
+function chiudiStoricoManutenzione(){
+
+  document.getElementById(
+    "modalStoricoManutenzione"
+  )
+  .style.display="none";
+
+}
 
 function reloadAll(){
 
   loadReports();
 
   loadVeicoli();
+   loadManutenzioni();
+   caricaFiltroManutenzioni();
+
 
   loadRichieste();
 
@@ -2547,6 +3366,249 @@ async function exportRichiesteExcel() {
       err.message
     );
   }
+}
+async function exportManutenzioniExcel(){
+
+try{
+
+
+const veicoloFiltro =
+document.getElementById("filtroManVeicolo").value;
+
+
+const meseFiltro =
+document.getElementById("filtroManMese").value;
+
+
+const snap =
+await db.collection("manutenzioni").get();
+
+
+let dati=[];
+
+
+snap.forEach(doc=>{
+
+
+const m = doc.data();
+
+
+// filtro veicolo
+
+if(
+veicoloFiltro &&
+m.veicoloId !== veicoloFiltro
+){
+return;
+}
+
+
+// filtro distretto
+
+const active = distrettoAttivo();
+
+
+if(
+active !== "ALL" &&
+m.distretto !== active
+){
+return;
+}
+
+
+// filtro mese
+
+if(meseFiltro){
+
+const parti =
+meseFiltro.split("-");
+
+const anno =
+Number(parti[0]);
+
+const mese =
+Number(parti[1]);
+
+
+if(
+m.anno !== anno ||
+m.mese !== mese
+){
+return;
+}
+
+}
+
+
+// inserimento riga Excel
+
+dati.push({
+
+"Data":
+m.data
+? m.data.toDate()
+.toLocaleDateString("it-IT")
+:"",
+
+
+"Targa":
+m.targa || "",
+
+
+"Modello":
+m.modello || "",
+
+
+"Comparto":
+m.comparto || "",
+
+
+"Distretto":
+m.distretto || "",
+
+
+"KM":
+m.km || "",
+
+
+"Olio motore":
+m.olioMotore ? "OK":"-",
+
+
+"Filtro olio":
+m.filtroOlio ? "OK":"-",
+
+
+"Impianto luci":
+m.impiantoLuci ? "OK":"-",
+
+
+"Cambio olio":
+m.cambioOlio ? "OK":"-",
+
+
+"Olio freni":
+m.olioFreni ? "OK":"-",
+
+
+"Pastiglie freni":
+m.pastiglieFreni ? "OK":"-",
+
+
+"Filtro benzina":
+m.filtroBenzina ? "OK":"-",
+
+
+"Filtro aria":
+m.filtroAria ? "OK":"-",
+
+
+"Candele":
+m.candele ? "OK":"-",
+
+
+"Liquido raffreddamento":
+m.liquidoRaffreddamento ? "OK":"-",
+
+
+"Pneumatici":
+m.pneumatici ? "OK":"-",
+
+
+"Carburazione":
+m.carburazione ? "OK":"-",
+
+
+"Cavi gas":
+m.caviGas ? "OK":"-",
+
+
+"Batteria":
+m.batteria ? "OK":"-",
+
+
+"Ammortizzatori":
+m.ammortizzatori ? "OK":"-",
+
+
+"Serraggio bulloneria":
+m.serraggioBulloneria ? "OK":"-",
+
+
+"Controlli effettuati":
+m.note || ""
+
+});
+
+
+});
+
+
+
+if(dati.length===0){
+
+alert("Nessuna manutenzione trovata");
+
+return;
+
+}
+
+
+
+const ws =
+XLSX.utils.json_to_sheet(dati);
+
+
+const wb =
+XLSX.utils.book_new();
+
+
+XLSX.utils.book_append_sheet(
+wb,
+ws,
+"Manutenzioni"
+);
+
+
+
+const file =
+XLSX.write(wb,{
+bookType:"xlsx",
+type:"array"
+});
+
+
+
+saveAs(
+
+new Blob(
+[file],
+{
+type:"application/octet-stream"
+}
+),
+
+`Storico_Manutenzioni_${new Date()
+.toISOString()
+.slice(0,10)}.xlsx`
+
+);
+
+
+
+}
+catch(err){
+
+console.error(err);
+
+alert(
+"Errore esportazione manutenzioni: "
++err.message
+);
+
+}
+
+
 }
 function apriSostituzione(id){
 
