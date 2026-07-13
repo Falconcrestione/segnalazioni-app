@@ -162,6 +162,13 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <button onclick="apriNuovoVeicolo()">
     ➕ Aggiungi Veicolo
   </button>
+  <input 
+  type="text" 
+  id="cercaVeicolo" 
+  placeholder="🔍 Cerca targa o modello..."
+  oninput="filtraVeicoli()"
+  style="padding:8px;width:250px;margin-left:10px;"
+>
 </div>
 
 <div class="table-container">
@@ -808,6 +815,7 @@ function renderReports(list) {
   let totaleEuro = 0;
   let filtered = list;
   const ultimePosizioni = {};
+  let html = "";
   
 
 // 🔥 modalità recenti
@@ -840,7 +848,7 @@ if (Array.isArray(d.rifornimenti) && d.rifornimenti.length > 0) {
   totaleEuro += Number(d.importoeuro || 0);
 
 }
-  reportsBody.innerHTML += `
+  html += `
 <tr>
   <td>${dataOra}</td>
   <td>${d.distretto}</td>
@@ -970,6 +978,7 @@ ${
   }
 }
   });
+  reportsBody.innerHTML = html;
   Object.values(ultimePosizioni).forEach(v => {
 
   const marker = L.marker([
@@ -1399,6 +1408,33 @@ style="background:#dc3545;color:white;margin-bottom:5px;">
 
     });
   });
+}
+function filtraVeicoli(){
+
+  const testo =
+    document.getElementById("cercaVeicolo")
+    .value
+    .toLowerCase();
+
+  const righe =
+    document.querySelectorAll("#veicoliBody tr");
+
+
+  righe.forEach(riga=>{
+
+    const contenuto =
+      riga.innerText.toLowerCase();
+
+
+    if(contenuto.includes(testo)){
+      riga.style.display="";
+    }
+    else{
+      riga.style.display="none";
+    }
+
+  });
+
 }
 async function eliminaReport(reportId){
   if(!confirm("Sei sicuro di voler eliminare questo report?")) return;
