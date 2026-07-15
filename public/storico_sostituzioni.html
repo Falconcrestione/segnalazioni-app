@@ -15,58 +15,41 @@ body{
   background:#f4f4f4;
 }
 
-
 h2{
   margin-bottom:20px;
 }
 
-
 table{
-
   width:100%;
   border-collapse:collapse;
   background:white;
-
 }
 
-
 th{
-
   background:#343a40;
   color:white;
   padding:10px;
-
 }
-
 
 td{
-
   padding:10px;
   border-bottom:1px solid #ddd;
-
 }
 
-
 .badge{
-
   padding:5px 10px;
   border-radius:6px;
   color:white;
   font-weight:bold;
-
 }
-
 
 </style>
 
 </head>
 
-
 <body>
 
-
 <h2>🔄 Storico Sostituzioni Veicoli</h2>
-
 
 <table>
 
@@ -86,28 +69,23 @@ td{
 
 <th>Stato</th>
 
+<th>Data Fine</th>
+
 </tr>
 
 </thead>
-
 
 <tbody id="storicoBody">
 
 </tbody>
 
-
 </table>
-
-
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
-
-
 <script>
-
 
 firebase.initializeApp({
 
@@ -121,94 +99,56 @@ firebase.initializeApp({
 
 });
 
-
 const db = firebase.firestore();
-
-
-
-
 
 function caricaStorico(){
 
+  const body = document.getElementById("storicoBody");
 
-const body = document.getElementById("storicoBody");
+  db.collection("sostituzioni_veicoli")
+  .orderBy("dataInizio","desc")
+  .onSnapshot(snapshot=>{
 
+    body.innerHTML="";
 
+    snapshot.forEach(doc=>{
 
-db.collection("sostituzioni_veicoli")
-.orderBy("dataInizio","desc")
-.onSnapshot(snapshot=>{
+      const s = doc.data();
 
-
-body.innerHTML="";
-
-
-
-snapshot.forEach(doc=>{
-
-
-const s = doc.data();
-
-
-
-body.innerHTML += `
+      body.innerHTML += `
 
 <tr>
 
-
 <td>
-
 ${
 s.dataInizio
 ?
-s.dataInizio
-.toDate()
-.toLocaleString("it-IT")
+s.dataInizio.toDate().toLocaleString("it-IT")
 :
 "-"
 }
-
 </td>
 
-
-
 <td>
-
 Distretto ${s.distretto || "-"}
-
 </td>
 
-
-
 <td>
-
 ${s.targaGuasto || "-"}
-
 </td>
 
-
-
 <td>
-
 ${s.targaSostituto || "-"}
-
 </td>
 
-
-
 <td>
-
 Distretto ${s.distrettoSostituto || "-"}
-
 </td>
-
-
 
 <td>
 
-<span 
+<span
 class="badge"
-
 style="
 background:
 ${
@@ -224,45 +164,42 @@ ${s.stato || "-"}
 
 </span>
 
-
 </td>
 
+<td>
+${
+s.dataFine
+?
+s.dataFine.toDate().toLocaleString("it-IT")
+:
+"-"
+}
+</td>
 
 </tr>
 
-
 `;
 
+    });
 
-});
+  }, errore => {
 
+    console.error(
+      "Errore caricamento storico:",
+      errore
+    );
 
-}, errore => {
+    alert(
+      "Errore lettura storico sostituzioni"
+    );
 
-
-console.error(
-"Errore caricamento storico:",
-errore
-);
-
-
-alert(
-"Errore lettura storico sostituzioni"
-);
-
-
-});
-
+  });
 
 }
 
-
-
 caricaStorico();
 
-
 </script>
-
 
 </body>
 
