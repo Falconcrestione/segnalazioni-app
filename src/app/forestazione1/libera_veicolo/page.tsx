@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { DISTRETTI } from "../../lib/distretti";
 import React from "react";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import Link from "next/link";
 
 export default function Sorveglianza() {
   const [distretto, setDistretto] = useState("");
@@ -462,7 +463,12 @@ if (veicoloId) {
   };
 
   return (
+    
+    
     <div style={container}>
+       <Link href="/">
+        <button style={btn}>🚜 TORNA A HOME</button>
+      </Link>
       <h2>SETTORI VARI – INVIO REPORT</h2>
 
       <h3>Documentazione</h3>
@@ -511,6 +517,8 @@ if (veicoloId) {
             </div>
           </div>
         </div>
+        
+
       )}
 
       
