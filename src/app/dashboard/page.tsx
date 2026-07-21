@@ -5,6 +5,8 @@ import { db } from "../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import MapAIB from "./components/MapAIB";
 import { doc, updateDoc } from "firebase/firestore";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 export default function DashboardAIB() {
   const [mezzi, setMezzi] = useState<any[]>([]);
@@ -125,6 +127,91 @@ async function sostituisciMezzo(id: string) {
 
   await loadData();
 }
+function esportaExcelAIB() {
+
+  const ordinati = [...reportsFiltrati].sort((a, b) => {
+
+    const dataA = a.createdAt?.toDate
+      ? a.createdAt.toDate()
+      : new Date(0);
+
+    const dataB = b.createdAt?.toDate
+      ? b.createdAt.toDate()
+      : new Date(0);
+
+    return dataA.getTime() - dataB.getTime();
+  });
+
+  let totaleKm = 0;
+let totaleEuro = 0;
+ const dati = ordinati.map((r) => {
+
+  totaleKm += Number(r.kmPercorsi || 0);
+  totaleEuro += Number(r.importo || 0);
+
+  return {
+
+    Data: r.createdAt?.toDate
+      ? r.createdAt.toDate().toLocaleString("it-IT")
+      : "",
+
+    Squadra: r.identificativo_squadra || "",
+    "Tipo Mezzo": r.tipoMezzo || "",
+    Targa: r.targa || "",
+    Distretto: r.distretto || "",
+    Comune: r.comune || "",
+    Importo: r.importo || 0,
+    Litri: r.litri || 0,
+    "KM Partenza": r.kmPartenza || 0,
+    "KM Arrivo": r.kmArrivo || 0,
+    "KM Percorsi": r.kmPercorsi || 0,
+    Foto: r.fotoUrl || ""
+
+  };
+
+});
+dati.push({
+
+  Data: "",
+  Squadra: "",
+  "Tipo Mezzo": "",
+  Targa: "TOTALE",
+  Distretto: "",
+  Comune: "",
+  Importo: totaleEuro,
+  Litri: "",
+  "KM Partenza": "",
+  "KM Arrivo": "",
+  "KM Percorsi": totaleKm,
+  Foto: ""
+
+});
+
+  const ws = XLSX.utils.json_to_sheet(dati);
+
+  const wb = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    ws,
+    "Reports AIB"
+  );
+
+
+  const file = XLSX.write(wb, {
+    bookType:"xlsx",
+    type:"array"
+  });
+
+
+  saveAs(
+    new Blob([file]),
+    `Reports_AIB_${new Date()
+      .toISOString()
+      .slice(0,10)}.xlsx`
+  );
+}
+
 async function modificaReport(report: any) {
   const importo = prompt("Importo (€)", report.importo);
   if (importo === null) return;
@@ -417,6 +504,20 @@ async function modificaReport(report: any) {
     ))}
   </select>
 </div>
+<button
+  onClick={esportaExcelAIB}
+  style={{
+    background:"#28a745",
+    color:"white",
+    border:"none",
+    padding:"8px 15px",
+    borderRadius:6,
+    cursor:"pointer",
+    marginBottom:10
+  }}
+>
+  📥 Scarica Excel
+</button>
         <h2>⛽ Reports Carburante</h2>
 
         <div

@@ -326,6 +326,8 @@ box-sizing:border-box;
 <h3>Modifica Campi Report</h3>
 
 <input type="hidden" id="reportId">
+<label>Data Report</label>
+<input type="datetime-local" id="editData"><br><br>
 
 <label>Distretto</label>
 <input type="number" id="editDistretto"><br><br>
@@ -2149,6 +2151,24 @@ function apriModificaReport(id){
   
   
   document.getElementById("reportId").value = id;
+  if (r.createdAt) {
+
+  const d = r.createdAt.toDate();
+
+  const pad = n => String(n).padStart(2, "0");
+
+  document.getElementById("editData").value =
+    d.getFullYear() + "-" +
+    pad(d.getMonth() + 1) + "-" +
+    pad(d.getDate()) + "T" +
+    pad(d.getHours()) + ":" +
+    pad(d.getMinutes());
+
+} else {
+
+  document.getElementById("editData").value = "";
+
+}
 
   document.getElementById("editDistretto").value = r.distretto || "";
   document.getElementById("editComparto").value = r.comparto || "";
@@ -2160,7 +2180,26 @@ function apriModificaReport(id){
 
 container.innerHTML = "";
 
-const rifs = r.rifornimenti || [];
+// Compatibilità vecchi e nuovi report
+let rifs = [];
+
+if (Array.isArray(r.rifornimenti) && r.rifornimenti.length > 0) {
+
+  // Nuovo formato
+  rifs = r.rifornimenti;
+
+} else {
+
+  // Vecchio formato
+  rifs = [{
+    km: r.rifornimentoKm || "",
+    litri: r.quantitaLitri || "",
+    euro: r.importoeuro || "",
+    prossimoRifornimento: r.prossimoRifornimento || ""
+  }];
+
+}
+
 
 rifs.forEach((rf, i) => {
 
@@ -2214,6 +2253,12 @@ async function salvaCampi(){
 
   try{
     await db.collection("reports").doc(id).update({
+      createdAt:
+  document.getElementById("editData").value
+    ? firebase.firestore.Timestamp.fromDate(
+        new Date(document.getElementById("editData").value)
+      )
+    : null,
 
       distretto: Number(document.getElementById("editDistretto").value),
       comparto: document.getElementById("editComparto").value,
