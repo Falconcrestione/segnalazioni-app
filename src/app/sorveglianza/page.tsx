@@ -45,6 +45,7 @@ const [receiptUrl, setReceiptUrl] = useState("");
     oraPartenza: "",
     oraArrivo: "",
     conducente: "",
+    passeggeri_autorizzati:"",
     percorso: "",
     kmPartenza: "",
     kmArrivo: "",
@@ -62,6 +63,7 @@ const validatePdfForm = () => {
     "oraPartenza",
     "oraArrivo",
     "conducente",
+    "passeggeri_autorizzati",
     "kmPartenza",
     "kmArrivo",
     "percorso",
@@ -152,7 +154,7 @@ useEffect(() => {
     const page = pdfDoc.addPage([595, 842]); // A4
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-    const { veicolo, targa, data, oraPartenza, oraArrivo, conducente,
+    const { veicolo, targa, data, oraPartenza, oraArrivo, conducente,passeggeri_autorizzati,
       percorso, kmPartenza, kmArrivo, buono, benzina, gasolio, manutenzione, lavaggi } = pdfFormData;
 
     page.drawText(`Veicolo: ${veicolo}`, { x: 50, y: 800, size: 12, font, color: rgb(0, 0, 0) });
@@ -161,6 +163,7 @@ useEffect(() => {
     page.drawText(`Ora Partenza: ${oraPartenza}`, { x: 50, y: 740, size: 12, font, color: rgb(0, 0, 0) });
     page.drawText(`Ora Arrivo: ${oraArrivo}`, { x: 50, y: 720, size: 12, font, color: rgb(0, 0, 0) });
     page.drawText(`Conducente: ${conducente}`, { x: 50, y: 700, size: 12, font, color: rgb(0, 0, 0) });
+     page.drawText(`Conducente: ${passeggeri_autorizzati}`, { x: 50, y: 700, size: 12, font, color: rgb(0, 0, 0) });
     page.drawText(`Percorso: ${percorso}`, { x: 50, y: 680, size: 12, font, color: rgb(0, 0, 0) });
     page.drawText(`KM Partenza: ${kmPartenza}`, { x: 50, y: 660, size: 12, font, color: rgb(0, 0, 0) });
     page.drawText(`KM Arrivo: ${kmArrivo}`, { x: 50, y: 640, size: 12, font, color: rgb(0, 0, 0) });
@@ -280,6 +283,7 @@ setImportoEuro("")
         oraPartenza: "",
         oraArrivo: "",
         conducente: "",
+        passeggeri_autorizzati:"",
         percorso: "",
         kmPartenza: "",
         kmArrivo: "",
