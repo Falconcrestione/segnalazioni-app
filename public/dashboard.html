@@ -2012,6 +2012,10 @@ function apriModifica(report){
     oraPartenza: prompt("Ora partenza:", report.oraPartenza),
     oraArrivo: prompt("Ora arrivo:", report.oraArrivo),
     conducente: prompt("Conducente:", report.conducente),
+    Passeggeri_autorizzati: prompt(
+  "Passeggeri autorizzati:",
+  report.Passeggeri_autorizzati || ""
+),
     percorso: prompt("Percorso:", report.percorso),
     kmPartenza: prompt("Km partenza:", report.kmPartenza),
     kmArrivo: prompt("Km arrivo:", report.kmArrivo),
@@ -2093,9 +2097,14 @@ async function salvaModificaReport(dati){
     riga("Data", dati.data);
     riga("Ora partenza", dati.oraPartenza);
     riga("Ora arrivo", dati.oraArrivo);
-    riga("Conducente", dati.conducente);
+   riga("Conducente", dati.conducente);
 
-    y -= 10;
+riga(
+  "Passeggeri autorizzati",
+  dati.Passeggeri_autorizzati
+);
+
+y -= 10;
 
     // 🚗 PERCORSO
     page.drawText("PERCORSO", {
