@@ -209,17 +209,85 @@ const handlePdfFormChange = (
     page.drawText(`Data: ${data}`, { x: 50, y: 760, size: 12, font, color: rgb(0, 0, 0) });
     page.drawText(`Ora Partenza: ${oraPartenza}`, { x: 50, y: 740, size: 12, font, color: rgb(0, 0, 0) });
     page.drawText(`Ora Arrivo: ${oraArrivo}`, { x: 50, y: 720, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`Conducente: ${conducente}`, { x: 50, y: 700, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`Conducente: ${passeggeri_autorizzati}`, { x: 50, y: 700, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`Percorso: ${percorso}`, { x: 50, y: 680, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`KM Partenza: ${kmPartenza}`, { x: 50, y: 660, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`KM Arrivo: ${kmArrivo}`, { x: 50, y: 640, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`Buono n°: ${buono}`, { x: 50, y: 620, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`Benzina L: ${benzina}`, { x: 50, y: 600, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`Gasolio L: ${gasolio}`, { x: 50, y: 580, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`Manutenzione: ${manutenzione}`, { x: 50, y: 560, size: 12, font, color: rgb(0, 0, 0) });
-    page.drawText(`Lavaggi: ${lavaggi}`, { x: 50, y: 540, size: 12, font, color: rgb(0, 0, 0) });
+    page.drawText(`Conducente: ${conducente}`, {
+  x: 50,
+  y: 700,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
 
+page.drawText(`Passeggeri autorizzati: ${passeggeri_autorizzati}`, {
+  x: 50,
+  y: 680,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
+
+page.drawText(`Percorso: ${percorso}`, {
+  x: 50,
+  y: 660,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
+
+page.drawText(`KM Partenza: ${kmPartenza}`, {
+  x: 50,
+  y: 640,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
+
+page.drawText(`KM Arrivo: ${kmArrivo}`, {
+  x: 50,
+  y: 620,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
+
+page.drawText(`Buono n°: ${buono}`, {
+  x: 50,
+  y: 600,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
+
+page.drawText(`Benzina L: ${benzina}`, {
+  x: 50,
+  y: 580,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
+
+page.drawText(`Gasolio L: ${gasolio}`, {
+  x: 50,
+  y: 560,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
+
+page.drawText(`Manutenzione: ${manutenzione}`, {
+  x: 50,
+  y: 540,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
+
+page.drawText(`Lavaggi: ${lavaggi}`, {
+  x: 50,
+  y: 520,
+  size: 12,
+  font,
+  color: rgb(0, 0, 0)
+});
     const pdfBytes = await pdfDoc.save();
     const pdfFile = new File([new Uint8Array(pdfBytes)], `report_${targa}_${Date.now()}.pdf`, { type: "application/pdf" });
     return pdfFile;
