@@ -178,6 +178,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <tr>
   <th>Targa</th>
   <th>Modello</th>
+  <th>Carta Q8</th>
   <th>Stato Assegnazione</th>
   <th>Stato Veicolo</th>
   <th>Sostituto</th>
@@ -206,6 +207,52 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
     Reset
   </button>
 </div>
+
+<h2>⛽ Contabilità Q8</h2>
+
+<div style="margin-bottom:10px;">
+
+  <label>Da:</label>
+  <input type="date" id="q8FromDate">
+
+  <label style="margin-left:15px;">A:</label>
+  <input type="date" id="q8ToDate">
+
+  <button onclick="loadContabilitaQ8()">
+    🔍 Filtra
+  </button>
+
+  <button onclick="
+    document.getElementById('q8FromDate').value='';
+    document.getElementById('q8ToDate').value='';
+    loadContabilitaQ8();
+  ">
+    🔄 Reset
+  </button>
+
+</div>
+
+<div class="table-container">
+<table>
+<thead>
+<tr>
+  <th>Modello</th>
+  <th>Targa</th>
+  <th>Carta Q8</th>
+  <th>N. Rifornimenti</th>
+  <th>Litri Totali</th>
+  <th>Totale €</th>
+</tr>
+</thead>
+
+<tbody id="q8ContabilitaBody"></tbody>
+
+</table>
+</div>
+
+<h3 id="q8TotaleGenerale">
+  Totale generale: 0 L — € 0,00
+</h3>
 
 
 <h2>🔧 Manutenzione Mensile Veicoli</h2>
@@ -307,6 +354,9 @@ width:400px;
 
 <label>KM Attuali:</label><br>
 <input type="number" id="kmAttualiInput"><br><br>
+
+<label>Numero Carta Q8:</label><br>
+<input type="text" id="cartaQ8Input" inputmode="numeric"><br><br>
 
 <button onclick="salvaGestione()">💾 Salva</button>
 <button onclick="chiudiGestione()">❌ Chiudi</button>
@@ -795,6 +845,139 @@ function resetFiltroData() {
   renderReports(reportsCache);
 }
 
+/* ================= CONTABILITÀ Q8 ================= */
+function loadContabilitaQ8() {
+  if (!accessGranted) return;
+
+    const fromDate = document.getElementById("q8FromDate").value;
+  const toDate = document.getElementById("q8ToDate").value;
+
+  const body = document.getElementById("q8ContabilitaBody");
+  const totaleGenerale = document.getElementById("q8TotaleGenerale");
+
+  if (!body || !totaleGenerale) return;
+
+  db.collection("veicoli").get().then(veicoliSnap => {
+
+    const veicoli = [];
+
+    veicoliSnap.forEach(doc => {
+      const v = doc.data();
+
+      const active = distrettoAttivo();
+
+      if (active !== "ALL" && v.distretto !== active) return;
+
+      veicoli.push({
+        id: doc.id,
+        modello: v.modello || "-",
+        targa: v.targa || "-",
+        cartaQ8: v.cartaQ8 || "—"
+      });
+    });
+
+    db.collection("reports").get().then(reportsSnap => {
+
+      const reports = [];
+
+     reportsSnap.forEach(doc => {
+
+  const report = doc.data();
+
+  let dataReport = null;
+
+  if (report.createdAt) {
+    dataReport = report.createdAt.toDate();
+  }
+
+  if (fromDate && dataReport) {
+    const dataDa = new Date(fromDate + "T00:00:00");
+
+    if (dataReport < dataDa) return;
+  }
+
+  if (toDate && dataReport) {
+    const dataA = new Date(toDate + "T23:59:59");
+
+    if (dataReport > dataA) return;
+  }
+
+  reports.push(report);
+});
+
+      let totaleLitriGenerale = 0;
+      let totaleEuroGenerale = 0;
+
+      body.innerHTML = "";
+
+      veicoli.forEach(v => {
+
+        let numeroRifornimenti = 0;
+        let litriTotali = 0;
+        let totaleEuro = 0;
+
+        reports.forEach(r => {
+
+          if (String(r.targa || "").trim() !== String(v.targa || "").trim()) {
+            return;
+          }
+
+          /* Nuovo sistema: più rifornimenti */
+          if (Array.isArray(r.rifornimenti)) {
+
+            r.rifornimenti.forEach(rif => {
+
+              numeroRifornimenti++;
+
+              litriTotali += Number(rif.litri || 0);
+              totaleEuro += Number(rif.euro || 0);
+
+            });
+
+          }
+
+          /* Vecchio sistema: un solo rifornimento */
+          else if (
+            r.quantitaLitri !== null &&
+            r.quantitaLitri !== undefined &&
+            r.quantitaLitri !== ""
+          ) {
+
+            numeroRifornimenti++;
+
+            litriTotali += Number(r.quantitaLitri || 0);
+            totaleEuro += Number(r.importoeuro || 0);
+
+          }
+
+        });
+
+        totaleLitriGenerale += litriTotali;
+        totaleEuroGenerale += totaleEuro;
+
+        body.innerHTML += `
+          <tr>
+            <td>${v.modello}</td>
+            <td>${v.targa}</td>
+            <td>${v.cartaQ8}</td>
+            <td>${numeroRifornimenti}</td>
+            <td>${litriTotali.toFixed(2)} L</td>
+            <td>€ ${totaleEuro.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+
+      totaleGenerale.innerHTML =
+        `Totale generale: ${totaleLitriGenerale.toFixed(2)} L — € ${totaleEuroGenerale.toFixed(2)}`;
+
+    }).catch(err => {
+      console.error("Errore caricamento reports Q8:", err);
+    });
+
+  }).catch(err => {
+    console.error("Errore caricamento veicoli Q8:", err);
+  });
+}
 
 
 /* ================= REPORTS ================= */
@@ -1354,6 +1537,7 @@ veicoliBody.innerHTML += `
 <tr style="${colore}">
   <td>${v.targa || "-"}</td>
   <td>${v.modello || "-"}</td>
+  <td>${v.cartaQ8 || "—"}</td>
  <td>${v.stato || "-"}</td>
 
 <td>
@@ -1400,7 +1584,8 @@ style="background:#dc3545;color:white;margin-bottom:5px;">
       '${v.revisioneScadenza ? v.revisioneScadenza.toDate().toISOString().split('T')[0] : ""}',
       '${v.ultimoTagliandoData ? v.ultimoTagliandoData.toDate().toISOString().split('T')[0] : ""}',
       '${v.kmUltimoTagliando || ""}',
-      '${v.kmAttuali || ""}'
+      '${v.kmAttuali || ""}',
+      '${v.cartaQ8 || ""}'
     )">
       ⚙ Gestisci
     </button>
@@ -1416,7 +1601,10 @@ style="background:#dc3545;color:white;margin-bottom:5px;">
 </tr>
 `;
 
-    });
+      });
+
+    loadContabilitaQ8();
+
   });
 }
 function filtraVeicoli(){
@@ -1481,7 +1669,7 @@ async function eliminaRichiesta(richiestaId, veicoloId){
     alert("Errore eliminazione richiesta");
   }
 }
-function apriGestione(id, ass, bollo, rev, tagData, kmTag, kmAtt){
+function apriGestione(id, ass, bollo, rev, tagData, kmTag, kmAtt, cartaQ8){
   document.getElementById("modalGestione").style.display="block";
 
   veicoloId.value = id;
@@ -1491,6 +1679,7 @@ function apriGestione(id, ass, bollo, rev, tagData, kmTag, kmAtt){
   tagliandoDataInput.value = tagData;
   kmTagliandoInput.value = kmTag;
   kmAttualiInput.value = kmAtt;
+  cartaQ8Input.value = cartaQ8 || "";
 }
 
 function chiudiGestione(){
@@ -1506,8 +1695,9 @@ async function salvaGestione(){
       bolloScadenza: bolloInput.value ? firebase.firestore.Timestamp.fromDate(new Date(bolloInput.value)) : null,
       revisioneScadenza: revisioneInput.value ? firebase.firestore.Timestamp.fromDate(new Date(revisioneInput.value)) : null,
       ultimoTagliandoData: tagliandoDataInput.value ? firebase.firestore.Timestamp.fromDate(new Date(tagliandoDataInput.value)) : null,
-      kmUltimoTagliando: kmTagliandoInput.value ? Number(kmTagliandoInput.value) : null,
-      kmAttuali: kmAttualiInput.value ? Number(kmAttualiInput.value) : null
+     kmUltimoTagliando: kmTagliandoInput.value ? Number(kmTagliandoInput.value) : null,
+kmAttuali: kmAttualiInput.value ? Number(kmAttualiInput.value) : null,
+cartaQ8: cartaQ8Input.value.trim()
     });
 
     alert("Dati aggiornati correttamente");
@@ -2442,16 +2632,35 @@ async function eseguiBackup() {
     // =========================
     const reportsSnap = await db.collection("reports").get();
 
+    let batch = db.batch();
+    let operazioni = 0;
+
     for (const doc of reportsSnap.docs) {
 
-      await db.collection("reports_backup_full")
-        .doc(doc.id)
-        .set({
+      batch.set(
+        db.collection("reports_backup_full").doc(doc.id),
+        {
           ...doc.data(),
           backupDate: firebase.firestore.Timestamp.now()
-        });
+        }
+      );
 
+      operazioni++;
+
+      // Firestore permette massimo 500 operazioni per batch
+      if (operazioni === 500) {
+        await batch.commit();
+
+        batch = db.batch();
+        operazioni = 0;
+      }
     }
+
+    // Scrive eventuali documenti rimasti
+    if (operazioni > 0) {
+      await batch.commit();
+    }
+
 
     // =========================
     // RICHIESTE → SOLO COMPLETATE
@@ -2460,16 +2669,35 @@ async function eseguiBackup() {
       .where("status", "==", "completata")
       .get();
 
+    batch = db.batch();
+    operazioni = 0;
+
     for (const doc of richiesteSnap.docs) {
 
-      await db.collection("richieste_backup_full")
-        .doc(doc.id)
-        .set({
+      batch.set(
+        db.collection("richieste_backup_full").doc(doc.id),
+        {
           ...doc.data(),
           backupDate: firebase.firestore.Timestamp.now()
-        });
+        }
+      );
 
+      operazioni++;
+
+      // Massimo 500 operazioni per batch
+      if (operazioni === 500) {
+        await batch.commit();
+
+        batch = db.batch();
+        operazioni = 0;
+      }
     }
+
+    // Scrive eventuali documenti rimasti
+    if (operazioni > 0) {
+      await batch.commit();
+    }
+
 
     alert("✅ BACKUP COMPLETATO CORRETTAMENTE");
 
@@ -3314,6 +3542,7 @@ function reloadAll(){
   loadReports();
 
   loadVeicoli();
+  loadContabilitaQ8();
    loadManutenzioni();
    caricaFiltroManutenzioni();
 
