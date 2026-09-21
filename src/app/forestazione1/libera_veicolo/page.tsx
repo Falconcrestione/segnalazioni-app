@@ -524,7 +524,7 @@ Per Benzina e Gasolio inserire 0`
       rifornimentiCompleti.push({
         km: Number(r.km),
         litri: Number(r.litri),
-        euro: Number(r.euro),
+       euro: r.euro ? Number(r.euro.replace(",", ".")) : null,
         foto: fotoUrl,
         prossimoRifornimento: prossimo,
       });

@@ -399,8 +399,8 @@ export default function Sorveglianza() {
           : null,
         prossimoRifornimento,
         importoeuro: importoeuro
-          ? Number(importoeuro)
-          : null,
+  ? Number(importoeuro.replace(",", "."))
+  : null,
         pdf: pdfUrl,
         jpg: jpgUrl,
         latitudine: latLng.lat,
