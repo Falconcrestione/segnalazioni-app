@@ -476,15 +476,27 @@ Per Benzina e Gasolio inserire 0`
 
     
 
-    // ✅ Foto obbligatoria se il rifornimento è compilato
-    for (const r of rifornimenti) {
-      const haKm = r.km !== "";
-      const haLitri = r.litri !== "";
-      const haEuro = r.euro !== "";
+        // ✅ Controllo completo del rifornimento
+    for (let i = 0; i < rifornimenti.length; i++) {
+      const r = rifornimenti[i];
 
-      if (haKm && haLitri && haEuro && !r.foto) {
+      const haKm = r.km.trim() !== "";
+      const haLitri = r.litri.trim() !== "";
+      const haEuro = r.euro.trim() !== "";
+      const haFoto = !!r.foto;
+
+      // Se non è stato inserito assolutamente nulla,
+      // il rifornimento non è stato effettuato.
+      if (!haKm && !haLitri && !haEuro && !haFoto) {
+        continue;
+      }
+
+      // Se è stato compilato anche solo un campo,
+      // tutti i dati del rifornimento diventano obbligatori.
+      if (!haKm || !haLitri || !haEuro || !haFoto) {
         return alert(
-          "⚠️ Devi aggiungere la foto dello scontrino."
+          `⚠️ Rifornimento ${i + 1} incompleto.\n\n` +
+          `Inserisci KM, quantità litri, importo in euro e foto dello scontrino.`
         );
       }
     }
