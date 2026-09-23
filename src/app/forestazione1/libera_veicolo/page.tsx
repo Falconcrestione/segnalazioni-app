@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { db, storage } from "../../lib/firebase";
 import {
   collection,
@@ -53,6 +53,7 @@ export default function Sorveglianza() {
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
+const invioInCorso = useRef(false);
 
   const aggiungiRifornimento = () => {
     setRifornimenti((prev) => [
@@ -465,6 +466,12 @@ Per Benzina e Gasolio inserire 0`
   };
 
   const handleSend = async () => {
+
+    // 🛑 Impedisce doppi o tripli invii
+    if (invioInCorso.current) {
+      return;
+    }
+
     if (!distretto)
       return alert("Seleziona il distretto");
 
@@ -474,6 +481,8 @@ Per Benzina e Gasolio inserire 0`
     if (!latLng)
       return alert("Posizione non disponibile");
 
+    // 🔒 Blocca immediatamente altri invii
+    invioInCorso.current = true;
     
 
         // ✅ Controllo completo del rifornimento
@@ -548,10 +557,11 @@ Per Benzina e Gasolio inserire 0`
     setLoading(true);
 
     try {
-      if (!validatePdfForm()) {
-        setLoading(false);
-        return;
-      }
+     if (!validatePdfForm()) {
+  setLoading(false);
+  invioInCorso.current = false;
+  return;
+}
 
       const pdfFile = await generatePdf();
 
@@ -736,6 +746,7 @@ Per Benzina e Gasolio inserire 0`
     }
 
     setLoading(false);
+invioInCorso.current = false;
   };
 
   return (
