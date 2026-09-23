@@ -1835,7 +1835,19 @@ function loadRichieste() {
       ...vdoc.data()
     }));
 
-   for (const doc of snap.docs) {
+   const richiesteOrdinate = [...snap.docs].sort((a, b) => {
+  const dataA = a.data().dataMissione
+    ? a.data().dataMissione.toDate().getTime()
+    : Infinity;
+
+  const dataB = b.data().dataMissione
+    ? b.data().dataMissione.toDate().getTime()
+    : Infinity;
+
+  return dataA - dataB;
+});
+
+for (const doc of richiesteOrdinate) {
 
   const r = doc.data();
   console.log(
