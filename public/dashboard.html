@@ -478,6 +478,10 @@ tbody tr:not([style]):hover td {
   <button class="btn-approve" onclick="exportReportsExcel()">
   📥 Scarica Excel
 </button>
+<button onclick="controllaReportDuplicati()"
+  style="background:#dc3545;color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">
+  🔍 Controlla duplicati
+</button>
 </div>
 
 <h3 id="totKm">Totale KM: 0</h3>
@@ -1237,6 +1241,16 @@ function loadContabilitaQ8() {
   const totaleGenerale = document.getElementById("q8TotaleGenerale");
 
   if (!body || !totaleGenerale) return;
+db.collection("sostituzioni_veicoli").get().then(sostituzioniSnap => {
+
+  const sostituzioniQ8 = [];
+
+  sostituzioniSnap.forEach(doc => {
+    sostituzioniQ8.push({
+      id: doc.id,
+      ...doc.data()
+    });
+  });
 
   db.collection("veicoli").get().then(veicoliSnap => {
 
@@ -1299,37 +1313,149 @@ function loadContabilitaQ8() {
 
         reports.forEach(r => {
 
-          if (String(r.targa || "").trim() !== String(v.targa || "").trim()) {
-            return;
-          }
+          const targaReport =
+  String(r.targa || "").trim().toUpperCase();
+
+const targaVeicolo =
+  String(v.targa || "").trim().toUpperCase();
+
+let reportAssociato = false;
+
+// Report del veicolo normale
+if (targaReport === targaVeicolo) {
+  reportAssociato = true;
+}
+
+// Report effettuato con veicolo sostitutivo
+if (!reportAssociato) {
+
+  sostituzioniQ8.forEach(s => {
+
+    if (reportAssociato) return;
+
+    const targaGuasto =
+      String(s.targaGuasto || "").trim().toUpperCase();
+
+    const targaSostituto =
+      String(s.targaSostituto || "").trim().toUpperCase();
+
+    // La sostituzione deve riguardare questo veicolo
+    if (targaGuasto !== targaVeicolo) return;
+
+    // Il report deve essere stato fatto col sostitutivo
+    if (targaReport !== targaSostituto) return;
+
+    // Data del report
+    let dataReport = null;
+
+    if (
+      r.createdAt &&
+      typeof r.createdAt.toDate === "function"
+    ) {
+      dataReport = r.createdAt.toDate();
+    }
+
+    if (!dataReport) return;
+
+    // Inizio sostituzione
+    let dataInizio = null;
+
+    if (
+      s.dataInizio &&
+      typeof s.dataInizio.toDate === "function"
+    ) {
+      dataInizio = s.dataInizio.toDate();
+    }
+
+    if (!dataInizio) return;
+
+    // Fine sostituzione
+    let dataFine = null;
+
+    if (
+      s.dataFine &&
+      typeof s.dataFine.toDate === "function"
+    ) {
+      dataFine = s.dataFine.toDate();
+    }
+
+    // Il report deve essere dentro il periodo della sostituzione
+    if (dataReport < dataInizio) return;
+
+    if (dataFine && dataReport > dataFine) return;
+
+    reportAssociato = true;
+  });
+}
+
+// Se non appartiene né al veicolo né al suo sostitutivo,
+// non considerarlo
+if (!reportAssociato) {
+  return;
+}
+       console.log(
+  "Q8 REPORT PRESO:",
+  {
+    id: r.id,
+    targa: r.targa,
+    distretto: r.distretto,
+    createdAt: r.createdAt
+      ? r.createdAt.toDate().toLocaleString("it-IT")
+      : null,
+    importoeuro: r.importoeuro,
+    rifornimenti: r.rifornimenti
+  }
+);
 
           /* Nuovo sistema: più rifornimenti */
-          if (Array.isArray(r.rifornimenti)) {
+       if (Array.isArray(r.rifornimenti)) {
 
-            r.rifornimenti.forEach(rif => {
+  r.rifornimenti.forEach(rif => {
 
-              numeroRifornimenti++;
+    // Stessa logica economica di REPORTS
+    totaleEuro += Number(rif.euro || 0);
 
-              litriTotali += Number(rif.litri || 0);
-              totaleEuro += Number(rif.euro || 0);
+    // Il rifornimento viene contato solo se
+    // sono presenti KM + Litri + Euro
+    if (
+      rif.km !== "" &&
+      rif.km !== null &&
+      rif.litri !== "" &&
+      rif.litri !== null &&
+      rif.euro !== "" &&
+      rif.euro !== null
+    ) {
 
-            });
+      numeroRifornimenti++;
 
-          }
+      litriTotali += Number(rif.litri);
 
+    }
+
+  });
+
+}
           /* Vecchio sistema: un solo rifornimento */
-          else if (
-            r.quantitaLitri !== null &&
-            r.quantitaLitri !== undefined &&
-            r.quantitaLitri !== ""
-          ) {
+          /* Vecchio sistema: un solo rifornimento */
+else {
 
-            numeroRifornimenti++;
+  // Totale economico: stessa logica di REPORTS
+  totaleEuro += Number(r.importoeuro || 0);
 
-            litriTotali += Number(r.quantitaLitri || 0);
-            totaleEuro += Number(r.importoeuro || 0);
+  // Numero rifornimenti e litri solo se presenti i litri
+  if (
+    r.quantitaLitri !== null &&
+    r.quantitaLitri !== undefined &&
+    r.quantitaLitri !== ""
+  ) {
 
-          }
+    numeroRifornimenti++;
+
+    litriTotali += Number(r.quantitaLitri || 0);
+
+  }
+
+}
 
         });
 
@@ -1351,13 +1477,18 @@ function loadContabilitaQ8() {
       totaleGenerale.innerHTML =
         `Totale generale: ${totaleLitriGenerale.toFixed(2)} L — € ${totaleEuroGenerale.toFixed(2)}`;
 
-    }).catch(err => {
+        }).catch(err => {
       console.error("Errore caricamento reports Q8:", err);
     });
 
   }).catch(err => {
     console.error("Errore caricamento veicoli Q8:", err);
   });
+
+}).catch(err => {
+  console.error("Errore caricamento sostituzioni Q8:", err);
+});
+
 }
 
 async function exportContabilitaQ8Excel() {
@@ -1450,32 +1581,51 @@ async function exportContabilitaQ8Excel() {
           return;
         }
 
-        if (Array.isArray(r.rifornimenti)) {
+       if (Array.isArray(r.rifornimenti)) {
 
-          r.rifornimenti.forEach(rif => {
+  r.rifornimenti.forEach(rif => {
 
-            numeroRifornimenti++;
+    // Stessa logica economica di Q8 e REPORTS
+    totaleEuro += Number(rif.euro || 0);
 
-            litriTotali += Number(rif.litri || 0);
+    // Il rifornimento viene contato solo se
+    // sono presenti KM + Litri + Euro
+    if (
+      rif.km !== "" &&
+      rif.km !== null &&
+      rif.litri !== "" &&
+      rif.litri !== null &&
+      rif.euro !== "" &&
+      rif.euro !== null
+    ) {
 
-            totaleEuro += Number(rif.euro || 0);
+      numeroRifornimenti++;
 
-          });
+      litriTotali += Number(rif.litri || 0);
 
-        } else if (
-          r.quantitaLitri !== null &&
-          r.quantitaLitri !== undefined &&
-          r.quantitaLitri !== ""
-        ) {
+    }
 
-          numeroRifornimenti++;
+  });
 
-          litriTotali += Number(r.quantitaLitri || 0);
+} else {
 
-          totaleEuro += Number(r.importoeuro || 0);
+  // Stessa logica economica di Q8 e REPORTS
+  totaleEuro += Number(r.importoeuro || 0);
 
-        }
+  // Numero rifornimenti e litri solo se presenti i litri
+  if (
+    r.quantitaLitri !== null &&
+    r.quantitaLitri !== undefined &&
+    r.quantitaLitri !== ""
+  ) {
 
+    numeroRifornimenti++;
+
+    litriTotali += Number(r.quantitaLitri || 0);
+
+  }
+
+}
       });
 
       totaleGeneraleLitri += litriTotali;
@@ -1730,6 +1880,10 @@ ${
     </button>
 
     <br><br>
+    <button onclick="aggiungiScontrino('${d.id}')">
+  📷 Aggiungi scontrino
+</button>
+  <br><br>
 
     <button class="btn-modifica" data-id="${d.id}">
       📄 Modifica PDF
@@ -2952,6 +3106,96 @@ y -= 10;
     console.error("Errore PDF:", err);
     alert("Errore modifica PDF: " + err.message);
   }
+}
+
+async function aggiungiScontrino(id) {
+
+  const report = reportsCache.find(
+    r => String(r.id) === String(id)
+  );
+
+  if (!report) {
+    alert("Report non trovato");
+    return;
+  }
+
+  if (
+    !Array.isArray(report.rifornimenti) ||
+    report.rifornimenti.length === 0
+  ) {
+    alert("Nel report non è presente un rifornimento da aggiornare.");
+    return;
+  }
+
+  const input = document.createElement("input");
+
+  input.type = "file";
+  input.accept = "image/*";
+
+  input.onchange = async function () {
+
+    const file = input.files[0];
+
+    if (!file) return;
+
+    try {
+
+      // Usa ESATTAMENTE la stessa cartella
+      // utilizzata dal normale invio del report
+      const fotoRef = firebase.storage().ref(
+        `images/rifornimenti/distretto_${report.distretto}/${Date.now()}_${file.name}`
+      );
+
+      // Carica la foto
+      await fotoRef.put(file);
+
+      // Recupera URL
+      const fotoUrl =
+        await fotoRef.getDownloadURL();
+
+      // Copia i rifornimenti esistenti
+      const rifornimentiAggiornati =
+        [...report.rifornimenti];
+
+      // Aggiunge la foto al primo rifornimento
+      rifornimentiAggiornati[0] = {
+        ...rifornimentiAggiornati[0],
+        foto: fotoUrl
+      };
+
+      // Aggiorna SOLO la foto
+      // senza modificare gli altri dati del report
+      await db.collection("reports")
+        .doc(id)
+        .update({
+
+          rifornimenti:
+            rifornimentiAggiornati,
+
+          // Manteniamo anche il campo jpg
+          // coerente con il normale invio
+          jpg: fotoUrl
+        });
+
+      alert("Scontrino aggiunto correttamente.");
+
+      // Ricarica i report
+      loadReports();
+
+    } catch (err) {
+
+      console.error(
+        "Errore caricamento scontrino:",
+        err
+      );
+
+      alert(
+        "Errore durante il caricamento dello scontrino."
+      );
+    }
+  };
+
+  input.click();
 }
 function apriModificaReport(id){
   const r = reportsCache.find(x => x.id === id);
@@ -4681,6 +4925,126 @@ function chiudiSostituzione(){
 
     document.getElementById("modalSostituzione").style.display = "none";
 
+}
+async function controllaReportDuplicati() {
+  try {
+    const snap = await db.collection("reports").get();
+
+    const gruppi = {};
+
+   snap.forEach(doc => {
+  const r = doc.data();
+
+  // Rispetta il distretto con cui l'utente è loggato
+  const active = distrettoAttivo();
+
+  if (active !== "ALL" && r.distretto !== active) {
+    return;
+  }
+
+  // Data del report
+      // Data del report
+      let dataReport = "";
+
+      if (r.createdAt && typeof r.createdAt.toDate === "function") {
+        const d = r.createdAt.toDate();
+
+        const pad = n => String(n).padStart(2, "0");
+
+        dataReport =
+          d.getFullYear() + "-" +
+          pad(d.getMonth() + 1) + "-" +
+          pad(d.getDate());
+      } else if (r.data) {
+        dataReport = String(r.data);
+      }
+
+      // Rifornimenti: nuovo formato
+      let rifornimenti = [];
+
+      if (Array.isArray(r.rifornimenti) && r.rifornimenti.length > 0) {
+        rifornimenti = r.rifornimenti.map(rf => ({
+          km: Number(rf.km || 0),
+          litri: Number(rf.litri || 0),
+          euro: Number(rf.euro || 0)
+        }));
+      } else if (
+        r.rifornimentoKm ||
+        r.quantitaLitri ||
+        r.importoeuro
+      ) {
+        // Vecchio formato
+        rifornimenti = [{
+          km: Number(r.rifornimentoKm || 0),
+          litri: Number(r.quantitaLitri || 0),
+          euro: Number(r.importoeuro || 0)
+        }];
+      }
+
+      // Trasformiamo i rifornimenti in una stringa confrontabile
+      const chiaveRifornimenti = rifornimenti
+        .map(rf =>
+          `${rf.km}|${rf.litri}|${rf.euro}`
+        )
+        .join("||");
+
+      // Chiave completa del report
+      const chiave =
+        `${r.targa || ""}|` +
+        `${dataReport}|` +
+        `${r.oraPartenza || ""}|` +
+        `${r.oraArrivo || ""}|` +
+        `${Number(r.kmPartenza || 0)}|` +
+        `${Number(r.kmArrivo || 0)}|` +
+        `${r.distretto || ""}|` +
+        `${r.comparto || ""}|` +
+        `${r.tipoVeicolo || ""}|` +
+        `${chiaveRifornimenti}`;
+
+      if (!gruppi[chiave]) {
+        gruppi[chiave] = [];
+      }
+
+      gruppi[chiave].push({
+        id: doc.id,
+        ...r,
+        dataReport
+      });
+    });
+
+    const duplicati = Object.values(gruppi)
+      .filter(gruppo => gruppo.length > 1);
+
+    if (duplicati.length === 0) {
+      alert("✅ Nessun report duplicato trovato.");
+      return;
+    }
+
+    let messaggio =
+      `⚠️ Trovati ${duplicati.length} gruppi di report duplicati.\n\n`;
+
+    duplicati.forEach((gruppo, indice) => {
+      const r = gruppo[0];
+
+      messaggio +=
+        `DUPLICATO ${indice + 1}\n` +
+        `Targa: ${r.targa || "-"}\n` +
+        `Data: ${r.dataReport || "-"}\n` +
+        `Ora: ${r.oraPartenza || "-"} - ${r.oraArrivo || "-"}\n` +
+        `KM: ${r.kmPartenza || "-"} → ${r.kmArrivo || "-"}\n` +
+        `Distretto: ${r.distretto || "-"}\n` +
+        `Report presenti: ${gruppo.length}\n` +
+        `ID: ${gruppo.map(x => x.id).join(", ")}\n\n`;
+    });
+
+    console.log("REPORT DUPLICATI:", duplicati);
+
+    alert(messaggio);
+
+  } catch (err) {
+    console.error("Errore controllo duplicati:", err);
+    alert("Errore durante il controllo dei report duplicati.");
+  }
 }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
 
