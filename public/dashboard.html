@@ -482,6 +482,11 @@ tbody tr:not([style]):hover td {
   style="background:#dc3545;color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;">
   🔍 Controlla duplicati
 </button>
+<button onclick="verificaTargheReportsVsVeicoli()">
+  Verifica targhe Reports / Veicoli
+</button>
+
+<div id="verificaTargheRisultato" style="margin-top:15px;"></div>
 </div>
 
 <h3 id="totKm">Totale KM: 0</h3>
@@ -1229,6 +1234,177 @@ function resetFiltroData() {
   document.getElementById("searchToDate").value = "";
   renderReports(reportsCache);
 }
+//funzione verifica targhe//
+function normalizzaDistretto(distretto) {
+  return String(distretto || "")
+    .toLowerCase()
+    .replace("distretto", "")
+    .trim();
+}
+
+function verificaTargheReportsVsVeicoli() {
+
+  const active = distrettoAttivo();
+
+  Promise.all([
+    db.collection("reports").get(),
+    db.collection("veicoli").get()
+  ]).then(([reportsSnap, veicoliSnap]) => {
+
+    const veicoliPerDistretto = {};
+
+    veicoliSnap.forEach(doc => {
+
+      const v = doc.data();
+
+      const targa = normalizzaTarga(v.targa);
+      const distretto = normalizzaDistretto(v.distretto);
+
+      if (!targa || !distretto) return;
+
+      if (!veicoliPerDistretto[distretto]) {
+        veicoliPerDistretto[distretto] = new Set();
+      }
+
+      veicoliPerDistretto[distretto].add(targa);
+    });
+
+    const targheMancanti = [];
+
+    reportsSnap.forEach(doc => {
+
+      const r = doc.data();
+
+      const targa = normalizzaTarga(r.targa);
+      const distretto = normalizzaDistretto(r.distretto);
+
+      if (!targa || !distretto) return;
+
+      // SE È SELEZIONATO UN DISTRETTO,
+      // CONSIDERA SOLO QUELLO
+      if (active !== "ALL" && distretto !== normalizzaDistretto(active)) {
+        return;
+      }
+
+      const presenti = veicoliPerDistretto[distretto];
+
+      if (!presenti || !presenti.has(targa)) {
+
+        let importo = 0;
+
+        if (
+          Array.isArray(r.rifornimenti) &&
+          r.rifornimenti.length > 0
+        ) {
+
+          r.rifornimenti.forEach(rif => {
+            importo += Number(rif.euro || 0);
+          });
+
+        } else {
+
+          importo = Number(r.importoeuro || 0);
+
+        }
+
+        targheMancanti.push({
+          id: doc.id,
+          targa: r.targa || "",
+          distretto: r.distretto || "",
+          data: r.createdAt
+            ? r.createdAt.toDate().toLocaleDateString("it-IT")
+            : "",
+          importo: importo
+        });
+      }
+    });
+
+    const contenitore =
+      document.getElementById("verificaTargheRisultato");
+
+    if (!contenitore) return;
+
+    if (targheMancanti.length === 0) {
+
+      contenitore.innerHTML = `
+        <div style="
+          padding:15px;
+          background:#d1fae5;
+          border-radius:8px;
+        ">
+          <strong>✅ Nessuna anomalia</strong><br>
+          Tutte le targhe dei Reports sono presenti
+          nei Veicoli del distretto selezionato.
+        </div>
+      `;
+
+      return;
+    }
+
+    contenitore.innerHTML = `
+
+      <div style="
+        padding:15px;
+        background:#fee2e2;
+        border-radius:8px;
+        margin-bottom:10px;
+      ">
+        <strong>
+          ⚠ Targhe Reports non presenti nei Veicoli:
+        </strong>
+        ${targheMancanti.length}
+      </div>
+
+      <table style="
+        width:100%;
+        border-collapse:collapse;
+      ">
+
+        <thead>
+          <tr>
+            <th>Targa</th>
+            <th>Distretto</th>
+            <th>Data</th>
+            <th>Importo €</th>
+            <th>ID Report</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          ${targheMancanti.map(r => `
+
+            <tr>
+
+              <td>${r.targa}</td>
+
+              <td>${r.distretto}</td>
+
+              <td>${r.data}</td>
+
+              <td>
+                € ${r.importo.toFixed(2)}
+              </td>
+
+              <td>${r.id}</td>
+
+            </tr>
+
+          `).join("")}
+
+        </tbody>
+
+      </table>
+    `;
+  });
+}
+//FUNZIONE NORMALIZZAZIONE TARGHE//
+function normalizzaTarga(targa) {
+  return String(targa || "")
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .trim();
+}
 
 /* ================= CONTABILITÀ Q8 ================= */
 function loadContabilitaQ8() {
@@ -1275,9 +1451,12 @@ db.collection("sostituzioni_veicoli").get().then(sostituzioniSnap => {
 
       const reports = [];
 
-     reportsSnap.forEach(doc => {
+   reportsSnap.forEach(doc => {
 
-  const report = doc.data();
+  const report = {
+    id: doc.id,
+    ...doc.data()
+  };
 
   let dataReport = null;
 
@@ -1305,19 +1484,32 @@ db.collection("sostituzioni_veicoli").get().then(sostituzioniSnap => {
 
       body.innerHTML = "";
 
-      veicoli.forEach(v => {
+    let debugTotalePerReport = []; //aggiunta
+
+const reportGiaConteggiati = new Set();
+
+veicoli.forEach(v => {
 
         let numeroRifornimenti = 0;
         let litriTotali = 0;
         let totaleEuro = 0;
 
         reports.forEach(r => {
+          if (reportGiaConteggiati.has(r.id)) return;
+          const active = distrettoAttivo();
 
-          const targaReport =
-  String(r.targa || "").trim().toUpperCase();
+const rDistretto =
+  typeof r.distretto === "number"
+    ? r.distretto
+    : Number(String(r.distretto || "").replace("Distretto ", ""));
 
-const targaVeicolo =
-  String(v.targa || "").trim().toUpperCase();
+if (active !== "ALL" && rDistretto !== active) {
+  return;
+}
+
+  const targaReport = normalizzaTarga(r.targa);
+
+const targaVeicolo = normalizzaTarga(v.targa);
 
 let reportAssociato = false;
 
@@ -1333,11 +1525,9 @@ if (!reportAssociato) {
 
     if (reportAssociato) return;
 
-    const targaGuasto =
-      String(s.targaGuasto || "").trim().toUpperCase();
+   const targaGuasto = normalizzaTarga(s.targaGuasto);
 
-    const targaSostituto =
-      String(s.targaSostituto || "").trim().toUpperCase();
+    const targaSostituto = normalizzaTarga(s.targaSostituto);
 
     // La sostituzione deve riguardare questo veicolo
     if (targaGuasto !== targaVeicolo) return;
@@ -1393,6 +1583,8 @@ if (!reportAssociato) {
 if (!reportAssociato) {
   return;
 }
+
+reportGiaConteggiati.add(r.id);
        console.log(
   "Q8 REPORT PRESO:",
   {
@@ -1406,6 +1598,23 @@ if (!reportAssociato) {
     rifornimenti: r.rifornimenti
   }
 );
+let euroReportQ8 = 0;
+
+if (Array.isArray(r.rifornimenti) && r.rifornimenti.length > 0) {
+  r.rifornimenti.forEach(rif => {
+    euroReportQ8 += Number(rif.euro || 0);
+  });
+} else {
+  euroReportQ8 = Number(r.importoeuro || 0);
+}
+
+console.log("EURO Q8 DI QUESTO REPORT:", {
+  id: r.id,
+  targa: r.targa,
+  importoeuro: r.importoeuro,
+  euroQ8: euroReportQ8,
+  rifornimenti: r.rifornimenti
+});
 
           /* Nuovo sistema: più rifornimenti */
        if (Array.isArray(r.rifornimenti)) {
@@ -1476,6 +1685,8 @@ else {
 
       totaleGenerale.innerHTML =
         `Totale generale: ${totaleLitriGenerale.toFixed(2)} L — € ${totaleEuroGenerale.toFixed(2)}`;
+
+      
 
         }).catch(err => {
       console.error("Errore caricamento reports Q8:", err);
@@ -2359,7 +2570,7 @@ style="background:#dc3545;color:white;margin-bottom:5px;">
 
       });
 
-    loadContabilitaQ8();
+    //loadContabilitaQ8();
 
   });
 }
