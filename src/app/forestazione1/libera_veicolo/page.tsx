@@ -580,6 +580,7 @@ Per Benzina e Gasolio inserire 0`
         comparto,
         tipoVeicolo,
         targa,
+        conducente: pdfFormData.conducente,
 
         kmPartenza: Number(kmPartenza),
         kmArrivo: Number(kmArrivo),

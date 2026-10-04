@@ -388,6 +388,7 @@ export default function Sorveglianza() {
         comparto,
         tipoVeicolo,
         targa,
+        conducente: pdfFormData.conducente,
         kmPartenza: Number(kmPartenza),
         kmArrivo: Number(kmArrivo),
         kmGiornalieri,

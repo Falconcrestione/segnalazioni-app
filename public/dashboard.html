@@ -603,22 +603,30 @@ tbody tr:not([style]):hover td {
 
   <label style="margin-left:15px;">A:</label>
   <input type="date" id="q8ToDate">
-
-  <button onclick="loadContabilitaQ8()">
+    <label style="margin-left:15px;">Targa:</label>
+  <input
+    type="text"
+    id="q8Targa"
+    placeholder="Inserisci targa"
+    style="text-transform:uppercase;"
+  >
+   
+ <button onclick="loadContabilitaQ8()">
     🔍 Filtra
   </button>
 
   <button onclick="
     document.getElementById('q8FromDate').value='';
     document.getElementById('q8ToDate').value='';
+    document.getElementById('q8Targa').value='';
     loadContabilitaQ8();
   ">
     🔄 Reset
   </button>
 
   <button onclick="exportContabilitaQ8Excel()">
-  📥 Scarica Excel Q8
-</button>
+    📥 Scarica Excel Q8
+  </button>
 
 </div>
 
@@ -629,6 +637,10 @@ tbody tr:not([style]):hover td {
   <th>Modello</th>
   <th>Targa</th>
   <th>Carta Q8</th>
+  <th>Data</th>
+  <th>Conducente</th>
+  <th>KM Partenza</th>
+  <th>KM Arrivo</th>
   <th>N. Rifornimenti</th>
   <th>Litri Totali</th>
   <th>Totale €</th>
@@ -1408,106 +1420,122 @@ function normalizzaTarga(targa) {
 
 /* ================= CONTABILITÀ Q8 ================= */
 function loadContabilitaQ8() {
-  if (!accessGranted) return;
+  if (!accessGranted) return;
 
-    const fromDate = document.getElementById("q8FromDate").value;
-  const toDate = document.getElementById("q8ToDate").value;
+    const fromDate = document.getElementById("q8FromDate").value;
+  const toDate = document.getElementById("q8ToDate").value;
+  const targaFiltro = normalizzaTarga(
+  document.getElementById("q8Targa").value
+);
 
-  const body = document.getElementById("q8ContabilitaBody");
-  const totaleGenerale = document.getElementById("q8TotaleGenerale");
+  const body = document.getElementById("q8ContabilitaBody");
+  const totaleGenerale = document.getElementById("q8TotaleGenerale");
 
-  if (!body || !totaleGenerale) return;
+  if (!body || !totaleGenerale) return;
 db.collection("sostituzioni_veicoli").get().then(sostituzioniSnap => {
 
-  const sostituzioniQ8 = [];
+  const sostituzioniQ8 = [];
 
-  sostituzioniSnap.forEach(doc => {
-    sostituzioniQ8.push({
-      id: doc.id,
-      ...doc.data()
-    });
-  });
+  sostituzioniSnap.forEach(doc => {
+    sostituzioniQ8.push({
+      id: doc.id,
+      ...doc.data()
+    });
+  });
+const sostituzioneTest = sostituzioniQ8.find(
+  s => s.veicoloSostitutoId === "yN6MeUmvsCGxsHoeflAa"
+);
 
-  db.collection("veicoli").get().then(veicoliSnap => {
+console.log("SOSTITUZIONE TEST:", sostituzioneTest);
 
-    const veicoli = [];
+  db.collection("veicoli").get().then(veicoliSnap => {
 
-    veicoliSnap.forEach(doc => {
-      const v = doc.data();
+    const veicoli = [];
 
-      const active = distrettoAttivo();
+    veicoliSnap.forEach(doc => {
+      const v = doc.data();
 
-      if (active !== "ALL" && v.distretto !== active) return;
+      const active = distrettoAttivo();
 
-      veicoli.push({
-        id: doc.id,
-        modello: v.modello || "-",
-        targa: v.targa || "-",
-        cartaQ8: v.cartaQ8 || "—"
-      });
-    });
+      if (active !== "ALL" && v.distretto !== active) return;
 
-    db.collection("reports").get().then(reportsSnap => {
+      veicoli.push({
+        id: doc.id,
+        modello: v.modello || "-",
+        targa: v.targa || "-",
+        cartaQ8: v.cartaQ8 || "—"
+      });
+    });
 
-      const reports = [];
+    db.collection("reports").get().then(reportsSnap => {
 
-   reportsSnap.forEach(doc => {
+      const reports = [];
 
-  const report = {
-    id: doc.id,
-    ...doc.data()
-  };
+   reportsSnap.forEach(doc => {
 
-  let dataReport = null;
+  const report = {
+    id: doc.id,
+    ...doc.data()
+  };
 
-  if (report.createdAt) {
-    dataReport = report.createdAt.toDate();
-  }
+  let dataReport = null;
 
-  if (fromDate && dataReport) {
-    const dataDa = new Date(fromDate + "T00:00:00");
+  if (report.createdAt) {
+    dataReport = report.createdAt.toDate();
+  }
 
-    if (dataReport < dataDa) return;
-  }
+  if (fromDate && dataReport) {
+    const dataDa = new Date(fromDate + "T00:00:00");
 
-  if (toDate && dataReport) {
-    const dataA = new Date(toDate + "T23:59:59");
+    if (dataReport < dataDa) return;
+  }
 
-    if (dataReport > dataA) return;
-  }
+  if (toDate && dataReport) {
+    const dataA = new Date(toDate + "T23:59:59");
 
-  reports.push(report);
+    if (dataReport > dataA) return;
+  }
+
+  reports.push(report);
 });
 
-      let totaleLitriGenerale = 0;
-      let totaleEuroGenerale = 0;
+      let totaleLitriGenerale = 0;
+      let totaleEuroGenerale = 0;
 
-      body.innerHTML = "";
+      body.innerHTML = "";
 
-    let debugTotalePerReport = []; //aggiunta
+    let debugTotalePerReport = []; //aggiunta
 
-const reportGiaConteggiati = new Set();
+//const reportGiaConteggiati = new Set();
+
+const righeDettaglio = [];
 
 veicoli.forEach(v => {
-
-        let numeroRifornimenti = 0;
-        let litriTotali = 0;
-        let totaleEuro = 0;
-
-        reports.forEach(r => {
-          if (reportGiaConteggiati.has(r.id)) return;
-          const active = distrettoAttivo();
-
-const rDistretto =
-  typeof r.distretto === "number"
-    ? r.distretto
-    : Number(String(r.distretto || "").replace("Distretto ", ""));
-
-if (active !== "ALL" && rDistretto !== active) {
-  return;
+  if (
+  targaFiltro &&
+  normalizzaTarga(v.targa) !== targaFiltro
+) {
+  return;
 }
 
-  const targaReport = normalizzaTarga(r.targa);
+        let numeroRifornimenti = 0;
+        let litriTotali = 0;
+        let totaleEuro = 0;
+
+        reports.forEach(r => {
+          //if (reportGiaConteggiati.has(r.id)) return;
+          const active = distrettoAttivo();
+
+const rDistretto =
+  typeof r.distretto === "number"
+    ? r.distretto
+    : Number(String(r.distretto || "").replace("Distretto ", ""));
+
+if (active !== "ALL" && rDistretto !== active) {
+  return;
+}
+
+  const targaReport = normalizzaTarga(r.targa);
 
 const targaVeicolo = normalizzaTarga(v.targa);
 
@@ -1515,25 +1543,31 @@ let reportAssociato = false;
 
 // Report del veicolo normale
 if (targaReport === targaVeicolo) {
-  reportAssociato = true;
+  reportAssociato = true;
 }
 
 // Report effettuato con veicolo sostitutivo
+// =====================================================
+// REPORT EFFETTUATO CON VEICOLO SOSTITUTIVO
+// =====================================================
+
 if (!reportAssociato) {
 
   sostituzioniQ8.forEach(s => {
 
     if (reportAssociato) return;
 
-   const targaGuasto = normalizzaTarga(s.targaGuasto);
+    // Il report deve essere stato effettuato
+    // con la targa del veicolo sostitutivo
+    const targaSostituto =
+      normalizzaTarga(
+        String(s.targaSostituto || "")
+          .split(" - ")[0]
+      );
 
-    const targaSostituto = normalizzaTarga(s.targaSostituto);
-
-    // La sostituzione deve riguardare questo veicolo
-    if (targaGuasto !== targaVeicolo) return;
-
-    // Il report deve essere stato fatto col sostitutivo
-    if (targaReport !== targaSostituto) return;
+    if (targaReport !== targaSostituto) {
+      return;
+    }
 
     // Data del report
     let dataReport = null;
@@ -1547,7 +1581,8 @@ if (!reportAssociato) {
 
     if (!dataReport) return;
 
-    // Inizio sostituzione
+
+    // Data inizio sostituzione
     let dataInizio = null;
 
     if (
@@ -1559,7 +1594,8 @@ if (!reportAssociato) {
 
     if (!dataInizio) return;
 
-    // Fine sostituzione
+
+    // Data fine sostituzione
     let dataFine = null;
 
     if (
@@ -1569,138 +1605,250 @@ if (!reportAssociato) {
       dataFine = s.dataFine.toDate();
     }
 
-    // Il report deve essere dentro il periodo della sostituzione
-    if (dataReport < dataInizio) return;
 
-    if (dataFine && dataReport > dataFine) return;
+    // Il report deve essere stato fatto
+    // durante il periodo della sostituzione
+    if (dataReport < dataInizio) {
+      return;
+    }
 
-    reportAssociato = true;
-  });
-}
+    if (dataFine && dataReport > dataFine) {
+      return;
+    }
 
-// Se non appartiene né al veicolo né al suo sostitutivo,
-// non considerarlo
-if (!reportAssociato) {
-  return;
-}
 
-reportGiaConteggiati.add(r.id);
-       console.log(
-  "Q8 REPORT PRESO:",
-  {
-    id: r.id,
-    targa: r.targa,
-    distretto: r.distretto,
-    createdAt: r.createdAt
-      ? r.createdAt.toDate().toLocaleString("it-IT")
-      : null,
-    importoeuro: r.importoeuro,
-    rifornimenti: r.rifornimenti
-  }
-);
-let euroReportQ8 = 0;
+    // =================================================
+    // QUESTO È IL PUNTO IMPORTANTE
+    //
+    // La sostituzione riguarda il veicolo V.
+    // Quindi il report del sostitutivo viene
+    // conteggiato nella riga del veicolo GUASTO.
+    // =================================================
 
-if (Array.isArray(r.rifornimenti) && r.rifornimenti.length > 0) {
-  r.rifornimenti.forEach(rif => {
-    euroReportQ8 += Number(rif.euro || 0);
-  });
-} else {
-  euroReportQ8 = Number(r.importoeuro || 0);
-}
+    const targaGuasto =
+      normalizzaTarga(s.targaGuasto);
 
-console.log("EURO Q8 DI QUESTO REPORT:", {
-  id: r.id,
-  targa: r.targa,
-  importoeuro: r.importoeuro,
-  euroQ8: euroReportQ8,
-  rifornimenti: r.rifornimenti
-});
+    if (targaGuasto === targaVeicolo) {
 
-          /* Nuovo sistema: più rifornimenti */
-       if (Array.isArray(r.rifornimenti)) {
-
-  r.rifornimenti.forEach(rif => {
-
-    // Stessa logica economica di REPORTS
-    totaleEuro += Number(rif.euro || 0);
-
-    // Il rifornimento viene contato solo se
-    // sono presenti KM + Litri + Euro
-    if (
-      rif.km !== "" &&
-      rif.km !== null &&
-      rif.litri !== "" &&
-      rif.litri !== null &&
-      rif.euro !== "" &&
-      rif.euro !== null
-    ) {
-
-      numeroRifornimenti++;
-
-      litriTotali += Number(rif.litri);
+      reportAssociato = true;
 
     }
 
   });
 
 }
-          /* Vecchio sistema: un solo rifornimento */
-          /* Vecchio sistema: un solo rifornimento */
-else {
 
-  // Totale economico: stessa logica di REPORTS
-  totaleEuro += Number(r.importoeuro || 0);
+// Se non appartiene né al veicolo né al suo sostitutivo,
+// non considerarlo
+if (!reportAssociato) {
+  return;
+}
 
-  // Numero rifornimenti e litri solo se presenti i litri
-  if (
-    r.quantitaLitri !== null &&
-    r.quantitaLitri !== undefined &&
-    r.quantitaLitri !== ""
-  ) {
+//reportGiaConteggiati.add(r.id);
+let numeroRifornimentiReport = 0;
+let litriTotaliReport = 0;
+let totaleEuroReport = 0;
 
-    numeroRifornimenti++;
+/* Nuovo sistema: più rifornimenti */
+if (Array.isArray(r.rifornimenti)) {
 
-    litriTotali += Number(r.quantitaLitri || 0);
+  r.rifornimenti.forEach(rif => {
 
-  }
+    // Totale economico: stessa identica logica di Q8 originale
+    totaleEuroReport += Number(rif.euro || 0);
+
+    // Conteggio: stessa identica logica di Q8 originale
+    if (
+      rif.km !== "" &&
+      rif.km !== null &&
+      rif.litri !== "" &&
+      rif.litri !== null &&
+      rif.euro !== "" &&
+      rif.euro !== null
+    ) {
+      numeroRifornimentiReport++;
+      litriTotaliReport += Number(rif.litri);
+    }
+
+  });
 
 }
 
-        });
+/* Vecchio sistema: un solo rifornimento */
+else {
 
-        totaleLitriGenerale += litriTotali;
-        totaleEuroGenerale += totaleEuro;
+  totaleEuroReport += Number(r.importoeuro || 0);
 
-        body.innerHTML += `
-          <tr>
-            <td>${v.modello}</td>
-            <td>${v.targa}</td>
-            <td>${v.cartaQ8}</td>
-            <td>${numeroRifornimenti}</td>
-            <td>${litriTotali.toFixed(2)} L</td>
-            <td>€ ${totaleEuro.toFixed(2)}</td>
-          </tr>
-        `;
-      });
+  if (
+    r.quantitaLitri !== null &&
+    r.quantitaLitri !== undefined &&
+    r.quantitaLitri !== ""
+  ) {
+    numeroRifornimentiReport++;
+    litriTotaliReport += Number(r.quantitaLitri || 0);
+  }
 
-      totaleGenerale.innerHTML =
-        `Totale generale: ${totaleLitriGenerale.toFixed(2)} L — € ${totaleEuroGenerale.toFixed(2)}`;
+}
 
-      
+let dataReportDettaglio = "—";
 
-        }).catch(err => {
-      console.error("Errore caricamento reports Q8:", err);
-    });
+if (
+  r.createdAt &&
+  typeof r.createdAt.toDate === "function"
+) {
+  dataReportDettaglio =
+    r.createdAt.toDate().toLocaleDateString("it-IT");
+}
 
-  }).catch(err => {
-    console.error("Errore caricamento veicoli Q8:", err);
-  });
+righeDettaglio.push({
+  modello: v.modello,
+  targa: v.targa,
+  cartaQ8: v.cartaQ8,
+  data: dataReportDettaglio,
+  conducente: r.conducente || "—",
+  kmPartenza: r.kmPartenza ?? "—",
+  kmArrivo: r.kmArrivo ?? "—",
+  numeroRifornimenti: numeroRifornimentiReport,
+  litriTotali: litriTotaliReport,
+  totaleEuro: totaleEuroReport
+});
+       console.log(
+  "Q8 REPORT PRESO:",
+  {
+    id: r.id,
+    targa: r.targa,
+    distretto: r.distretto,
+    createdAt: r.createdAt
+      ? r.createdAt.toDate().toLocaleString("it-IT")
+      : null,
+    importoeuro: r.importoeuro,
+    rifornimenti: r.rifornimenti
+  }
+);
+let euroReportQ8 = 0;
+
+if (Array.isArray(r.rifornimenti) && r.rifornimenti.length > 0) {
+  r.rifornimenti.forEach(rif => {
+    euroReportQ8 += Number(rif.euro || 0);
+  });
+} else {
+  euroReportQ8 = Number(r.importoeuro || 0);
+}
+
+console.log("EURO Q8 DI QUESTO REPORT:", {
+  id: r.id,
+  targa: r.targa,
+  importoeuro: r.importoeuro,
+  euroQ8: euroReportQ8,
+  rifornimenti: r.rifornimenti
+});
+
+          /* Nuovo sistema: più rifornimenti */
+       if (Array.isArray(r.rifornimenti)) {
+
+  r.rifornimenti.forEach(rif => {
+
+    // Stessa logica economica di REPORTS
+    totaleEuro += Number(rif.euro || 0);
+
+    // Il rifornimento viene contato solo se
+    // sono presenti KM + Litri + Euro
+    if (
+      rif.km !== "" &&
+      rif.km !== null &&
+      rif.litri !== "" &&
+      rif.litri !== null &&
+      rif.euro !== "" &&
+      rif.euro !== null
+    ) {
+
+      numeroRifornimenti++;
+
+      litriTotali += Number(rif.litri);
+
+    }
+
+  });
+
+}
+          /* Vecchio sistema: un solo rifornimento */
+          /* Vecchio sistema: un solo rifornimento */
+else {
+
+  // Totale economico: stessa logica di REPORTS
+  totaleEuro += Number(r.importoeuro || 0);
+
+  // Numero rifornimenti e litri solo se presenti i litri
+  if (
+    r.quantitaLitri !== null &&
+    r.quantitaLitri !== undefined &&
+    r.quantitaLitri !== ""
+  ) {
+
+    numeroRifornimenti++;
+
+    litriTotali += Number(r.quantitaLitri || 0);
+
+  }
+
+}
+
+        });
+
+        totaleLitriGenerale += litriTotali;
+        totaleEuroGenerale += totaleEuro;
+
+        
+      });
+      righeDettaglio.forEach(riga => {
+
+  body.innerHTML += `
+    <tr>
+
+      <td>${riga.modello}</td>
+
+      <td>${riga.targa}</td>
+
+      <td>${riga.cartaQ8}</td>
+
+      <td>${riga.data}</td>
+
+      <td>${riga.conducente}</td>
+
+      <td>${riga.kmPartenza}</td>
+
+      <td>${riga.kmArrivo}</td>
+
+      <td>${riga.numeroRifornimenti}</td>
+
+      <td>${riga.litriTotali.toFixed(2)} L</td>
+
+      <td>€ ${riga.totaleEuro.toFixed(2)}</td>
+
+    </tr>
+  `;
+
+});
+
+      totaleGenerale.innerHTML =
+        `Totale generale: ${totaleLitriGenerale.toFixed(2)} L — € ${totaleEuroGenerale.toFixed(2)}`;
+
+      
+
+        }).catch(err => {
+      console.error("Errore caricamento reports Q8:", err);
+    });
+
+  }).catch(err => {
+    console.error("Errore caricamento veicoli Q8:", err);
+  });
 
 }).catch(err => {
-  console.error("Errore caricamento sostituzioni Q8:", err);
+  console.error("Errore caricamento sostituzioni Q8:", err);
 });
 
 }
+
 
 async function exportContabilitaQ8Excel() {
 
@@ -1711,11 +1859,39 @@ async function exportContabilitaQ8Excel() {
 
   try {
 
-    const fromDate = document.getElementById("q8FromDate").value;
-    const toDate = document.getElementById("q8ToDate").value;
+    const fromDate =
+      document.getElementById("q8FromDate").value;
+
+    const toDate =
+      document.getElementById("q8ToDate").value;
+
+    const targaFiltro =
+      normalizzaTarga(
+        document.getElementById("q8Targa").value
+      );
+
     const active = distrettoAttivo();
 
-    const veicoliSnap = await db.collection("veicoli").get();
+    /* ================= SOSTITUZIONI ================= */
+
+    const sostituzioniSnap =
+      await db.collection("sostituzioni_veicoli").get();
+
+    const sostituzioniQ8 = [];
+
+    sostituzioniSnap.forEach(doc => {
+
+      sostituzioniQ8.push({
+        id: doc.id,
+        ...doc.data()
+      });
+
+    });
+
+    /* ================= VEICOLI ================= */
+
+    const veicoliSnap =
+      await db.collection("veicoli").get();
 
     const veicoli = [];
 
@@ -1723,11 +1899,22 @@ async function exportContabilitaQ8Excel() {
 
       const v = doc.data();
 
-      if (active !== "ALL" && v.distretto !== active) {
+      if (
+        active !== "ALL" &&
+        v.distretto !== active
+      ) {
+        return;
+      }
+
+      if (
+        targaFiltro &&
+        normalizzaTarga(v.targa) !== targaFiltro
+      ) {
         return;
       }
 
       veicoli.push({
+        id: doc.id,
         modello: v.modello || "-",
         targa: v.targa || "-",
         cartaQ8: v.cartaQ8 || "—"
@@ -1735,41 +1922,181 @@ async function exportContabilitaQ8Excel() {
 
     });
 
-    const reportsSnap = await db.collection("reports").get();
+    /* ================= REPORTS ================= */
+
+    const reportsSnap =
+      await db.collection("reports").get();
 
     const reports = [];
 
     reportsSnap.forEach(doc => {
 
-      const report = doc.data();
+      const report = {
+        id: doc.id,
+        ...doc.data()
+      };
 
       let dataReport = null;
 
-      if (report.createdAt) {
-        dataReport = report.createdAt.toDate();
+      if (
+        report.createdAt &&
+        typeof report.createdAt.toDate === "function"
+      ) {
+        dataReport =
+          report.createdAt.toDate();
       }
+
+      /* FILTRO DATA */
 
       if (fromDate && dataReport) {
 
-        const dataDa = new Date(fromDate + "T00:00:00");
+        const dataDa =
+          new Date(fromDate + "T00:00:00");
 
         if (dataReport < dataDa) {
           return;
         }
+
       }
 
       if (toDate && dataReport) {
 
-        const dataA = new Date(toDate + "T23:59:59");
+        const dataA =
+          new Date(toDate + "T23:59:59");
 
         if (dataReport > dataA) {
           return;
         }
+
+      }
+
+      /* FILTRO TARGA */
+
+      if (targaFiltro) {
+
+        const targaReport =
+          normalizzaTarga(report.targa);
+
+        let targaFiltroAssociata = false;
+
+        /* Report con la targa normale */
+
+        if (targaReport === targaFiltro) {
+          targaFiltroAssociata = true;
+        }
+
+        /* Report effettuato con veicolo sostitutivo */
+
+        if (!targaFiltroAssociata) {
+
+          sostituzioniQ8.forEach(s => {
+
+            if (targaFiltroAssociata) {
+              return;
+            }
+
+            const targaGuasto =
+              normalizzaTarga(s.targaGuasto);
+
+            const targaSostituto =
+              normalizzaTarga(
+                String(
+                  s.targaSostituto || ""
+                ).split(" - ")[0]
+              );
+
+            if (targaGuasto !== targaFiltro) {
+              return;
+            }
+
+            if (targaReport !== targaSostituto) {
+              return;
+            }
+
+            let dataReport = null;
+
+            if (
+              report.createdAt &&
+              typeof report.createdAt.toDate === "function"
+            ) {
+              dataReport =
+                report.createdAt.toDate();
+            }
+
+            if (!dataReport) {
+              return;
+            }
+
+            let dataInizio = null;
+
+            if (
+              s.dataInizio &&
+              typeof s.dataInizio.toDate === "function"
+            ) {
+              dataInizio =
+                s.dataInizio.toDate();
+            }
+
+            if (!dataInizio) {
+              return;
+            }
+
+            let dataFine = null;
+
+            if (
+              s.dataFine &&
+              typeof s.dataFine.toDate === "function"
+            ) {
+              dataFine =
+                s.dataFine.toDate();
+            }
+
+            if (dataReport < dataInizio) {
+              return;
+            }
+
+            if (
+              dataFine &&
+              dataReport > dataFine
+            ) {
+              return;
+            }
+
+            targaFiltroAssociata = true;
+
+          });
+
+        }
+
+        if (!targaFiltroAssociata) {
+          return;
+        }
+
+      }
+
+      /* FILTRO DISTRETTO */
+
+      const rDistretto =
+        typeof report.distretto === "number"
+          ? report.distretto
+          : Number(
+              String(
+                report.distretto || ""
+              ).replace("Distretto ", "")
+            );
+
+      if (
+        active !== "ALL" &&
+        rDistretto !== active
+      ) {
+        return;
       }
 
       reports.push(report);
 
     });
+
+    /* ================= EXCEL ================= */
 
     const datiExcel = [];
 
@@ -1777,99 +2104,312 @@ async function exportContabilitaQ8Excel() {
     let totaleGeneraleEuro = 0;
     let totaleGeneraleRifornimenti = 0;
 
-    veicoli.forEach(v => {
+    /*
+     * NON usiamo reportGiaConteggiati.
+     *
+     * La tabella Q8 attualmente non usa
+     * questa limitazione, quindi l'Excel
+     * deve seguire la stessa logica.
+     */
 
-      let numeroRifornimenti = 0;
-      let litriTotali = 0;
-      let totaleEuro = 0;
+    veicoli.forEach(v => {
 
       reports.forEach(r => {
 
-        if (
-          String(r.targa || "").trim() !==
-          String(v.targa || "").trim()
-        ) {
+        const targaReport =
+          normalizzaTarga(r.targa);
+
+        const targaVeicolo =
+          normalizzaTarga(v.targa);
+
+        let reportAssociato = false;
+
+        /* ================= VEICOLO NORMALE ================= */
+
+        if (targaReport === targaVeicolo) {
+          reportAssociato = true;
+        }
+
+        /* ================= VEICOLO SOSTITUTIVO ================= */
+
+        if (!reportAssociato) {
+
+          sostituzioniQ8.forEach(s => {
+
+            if (reportAssociato) {
+              return;
+            }
+
+            /*
+             * La targa del sostitutivo può essere:
+             *
+             * GN985KW - fiat Panda
+             *
+             * oppure:
+             *
+             * RTY123
+             *
+             * Prendiamo sempre la parte prima di " - ".
+             */
+
+            const targaSostituto =
+              normalizzaTarga(
+                String(
+                  s.targaSostituto || ""
+                ).split(" - ")[0]
+              );
+
+            /*
+             * Il report deve essere stato effettuato
+             * con la targa del sostitutivo.
+             */
+
+            if (targaReport !== targaSostituto) {
+              return;
+            }
+
+            /* ================= DATA REPORT ================= */
+
+            let dataReport = null;
+
+            if (
+              r.createdAt &&
+              typeof r.createdAt.toDate === "function"
+            ) {
+              dataReport =
+                r.createdAt.toDate();
+            }
+
+            if (!dataReport) {
+              return;
+            }
+
+            /* ================= DATA INIZIO ================= */
+
+            let dataInizio = null;
+
+            if (
+              s.dataInizio &&
+              typeof s.dataInizio.toDate === "function"
+            ) {
+              dataInizio =
+                s.dataInizio.toDate();
+            }
+
+            if (!dataInizio) {
+              return;
+            }
+
+            /* ================= DATA FINE ================= */
+
+            let dataFine = null;
+
+            if (
+              s.dataFine &&
+              typeof s.dataFine.toDate === "function"
+            ) {
+              dataFine =
+                s.dataFine.toDate();
+            }
+
+            /* ================= PERIODO SOSTITUZIONE ================= */
+
+            if (dataReport < dataInizio) {
+              return;
+            }
+
+            if (
+              dataFine &&
+              dataReport > dataFine
+            ) {
+              return;
+            }
+
+            /*
+             * La sostituzione riguarda il veicolo
+             * rappresentato dalla riga V.
+             */
+
+            const targaGuasto =
+              normalizzaTarga(s.targaGuasto);
+
+            if (targaGuasto === targaVeicolo) {
+              reportAssociato = true;
+            }
+
+          });
+
+        }
+
+        /* ================= REPORT NON ASSOCIATO ================= */
+
+        if (!reportAssociato) {
           return;
         }
 
-       if (Array.isArray(r.rifornimenti)) {
+        /* ================= DATI REPORT ================= */
 
-  r.rifornimenti.forEach(rif => {
+        let numeroRifornimenti = 0;
+        let litriTotali = 0;
+        let totaleEuro = 0;
 
-    // Stessa logica economica di Q8 e REPORTS
-    totaleEuro += Number(rif.euro || 0);
+        /* ================= NUOVO SISTEMA ================= */
 
-    // Il rifornimento viene contato solo se
-    // sono presenti KM + Litri + Euro
-    if (
-      rif.km !== "" &&
-      rif.km !== null &&
-      rif.litri !== "" &&
-      rif.litri !== null &&
-      rif.euro !== "" &&
-      rif.euro !== null
-    ) {
+        if (Array.isArray(r.rifornimenti)) {
 
-      numeroRifornimenti++;
+          r.rifornimenti.forEach(rif => {
 
-      litriTotali += Number(rif.litri || 0);
+            /*
+             * Totale economico:
+             * stessa identica logica della tabella Q8
+             */
 
-    }
+            totaleEuro +=
+              Number(rif.euro || 0);
 
-  });
+            /*
+             * Conteggio rifornimento:
+             * KM + Litri + Euro devono essere presenti
+             */
 
-} else {
+            if (
+              rif.km !== "" &&
+              rif.km !== null &&
+              rif.litri !== "" &&
+              rif.litri !== null &&
+              rif.euro !== "" &&
+              rif.euro !== null
+            ) {
 
-  // Stessa logica economica di Q8 e REPORTS
-  totaleEuro += Number(r.importoeuro || 0);
+              numeroRifornimenti++;
 
-  // Numero rifornimenti e litri solo se presenti i litri
-  if (
-    r.quantitaLitri !== null &&
-    r.quantitaLitri !== undefined &&
-    r.quantitaLitri !== ""
-  ) {
+              litriTotali +=
+                Number(rif.litri);
 
-    numeroRifornimenti++;
+            }
 
-    litriTotali += Number(r.quantitaLitri || 0);
+          });
 
-  }
+        }
 
-}
-      });
+        /* ================= VECCHIO SISTEMA ================= */
 
-      totaleGeneraleLitri += litriTotali;
-      totaleGeneraleEuro += totaleEuro;
-      totaleGeneraleRifornimenti += numeroRifornimenti;
+        else {
 
-      datiExcel.push({
+          totaleEuro +=
+            Number(r.importoeuro || 0);
 
-        "Modello": v.modello,
-        "Targa": v.targa,
-        "Carta Q8": v.cartaQ8,
-        "N. Rifornimenti": numeroRifornimenti,
-        "Litri Totali": Number(litriTotali.toFixed(2)),
-        "Totale €": Number(totaleEuro.toFixed(2))
+          if (
+            r.quantitaLitri !== null &&
+            r.quantitaLitri !== undefined &&
+            r.quantitaLitri !== ""
+          ) {
+
+            numeroRifornimenti++;
+
+            litriTotali +=
+              Number(r.quantitaLitri || 0);
+
+          }
+
+        }
+
+        /* ================= TOTALI GENERALI ================= */
+
+        totaleGeneraleLitri +=
+          litriTotali;
+
+        totaleGeneraleEuro +=
+          totaleEuro;
+
+        totaleGeneraleRifornimenti +=
+          numeroRifornimenti;
+
+        /* ================= RIGA EXCEL ================= */
+
+        datiExcel.push({
+
+          "Modello":
+            v.modello,
+
+          "Targa":
+            v.targa,
+
+          "Carta Q8":
+            v.cartaQ8,
+
+          "Conducente":
+            r.conducente || "-",
+
+          "KM Partenza":
+            r.kmPartenza ?? "-",
+
+          "KM Arrivo":
+            r.kmArrivo ?? "-",
+
+          "N. Rifornimenti":
+            numeroRifornimenti,
+
+          "Litri Totali":
+            Number(
+              litriTotali.toFixed(2)
+            ),
+
+          "Totale €":
+            Number(
+              totaleEuro.toFixed(2)
+            )
+
+        });
 
       });
 
     });
+
+    /* ================= TOTALE GENERALE ================= */
 
     datiExcel.push({
 
-      "Modello": "TOTALE GENERALE",
-      "Targa": "",
-      "Carta Q8": "",
-      "N. Rifornimenti": totaleGeneraleRifornimenti,
-      "Litri Totali": Number(totaleGeneraleLitri.toFixed(2)),
-      "Totale €": Number(totaleGeneraleEuro.toFixed(2))
+      "Modello":
+        "TOTALE GENERALE",
+
+      "Targa":
+        "",
+
+      "Carta Q8":
+        "",
+
+      "Conducente":
+        "",
+
+      "KM Partenza":
+        "",
+
+      "KM Arrivo":
+        "",
+
+      "N. Rifornimenti":
+        totaleGeneraleRifornimenti,
+
+      "Litri Totali":
+        Number(
+          totaleGeneraleLitri.toFixed(2)
+        ),
+
+      "Totale €":
+        Number(
+          totaleGeneraleEuro.toFixed(2)
+        )
 
     });
 
-    const ws = XLSX.utils.json_to_sheet(datiExcel);
+    /* ================= CREAZIONE EXCEL ================= */
 
-    const wb = XLSX.utils.book_new();
+    const ws =
+      XLSX.utils.json_to_sheet(datiExcel);
+
+    const wb =
+      XLSX.utils.book_new();
 
     XLSX.utils.book_append_sheet(
       wb,
@@ -1878,15 +2418,31 @@ async function exportContabilitaQ8Excel() {
     );
 
     ws["!cols"] = [
-      { wch: 25 },
-      { wch: 15 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 18 }
+
+      { wch: 25 }, // Modello
+      { wch: 15 }, // Targa
+      { wch: 18 }, // Carta Q8
+      { wch: 25 }, // Conducente
+      { wch: 15 }, // KM Partenza
+      { wch: 15 }, // KM Arrivo
+      { wch: 18 }, // N. Rifornimenti
+      { wch: 18 }, // Litri Totali
+      { wch: 18 }  // Totale €
+
     ];
 
-    let nomeFile = "Contabilita_Q8";
+    /* ================= NOME FILE ================= */
+
+    let nomeFile =
+      "Contabilita_Q8";
+
+    if (targaFiltro) {
+
+      nomeFile +=
+        "_Targa_" +
+        targaFiltro;
+
+    }
 
     if (fromDate || toDate) {
 
@@ -1905,14 +2461,23 @@ async function exportContabilitaQ8Excel() {
     }
 
     if (active !== "ALL") {
-      nomeFile += "_Distretto_" + active;
+
+      nomeFile +=
+        "_Distretto_" +
+        active;
+
     }
 
     nomeFile += ".xlsx";
 
-    XLSX.writeFile(wb, nomeFile);
+    XLSX.writeFile(
+      wb,
+      nomeFile
+    );
 
-    alert("Excel Contabilità Q8 generato correttamente.");
+    alert(
+      "Excel Contabilità Q8 generato correttamente."
+    );
 
   } catch (err) {
 
@@ -1929,7 +2494,6 @@ async function exportContabilitaQ8Excel() {
   }
 
 }
-
 
 /* ================= REPORTS ================= */
 function loadReports() {
