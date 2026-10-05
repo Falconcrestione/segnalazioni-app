@@ -642,6 +642,7 @@ tbody tr:not([style]):hover td {
   <th>KM Partenza</th>
   <th>KM Arrivo</th>
   <th>N. Rifornimenti</th>
+   <th>Distretto</th>
   <th>Litri Totali</th>
   <th>Totale €</th>
 </tr>
@@ -1709,6 +1710,7 @@ righeDettaglio.push({
   kmPartenza: r.kmPartenza ?? "—",
   kmArrivo: r.kmArrivo ?? "—",
   numeroRifornimenti: numeroRifornimentiReport,
+  distretto:r.distretto,
   litriTotali: litriTotaliReport,
   totaleEuro: totaleEuroReport
 });
@@ -1820,6 +1822,9 @@ else {
       <td>${riga.kmArrivo}</td>
 
       <td>${riga.numeroRifornimenti}</td>
+
+      <td>${riga.distretto}</td>
+
 
       <td>${riga.litriTotali.toFixed(2)} L</td>
 
@@ -2171,6 +2176,7 @@ async function exportContabilitaQ8Excel() {
             /* ================= DATA REPORT ================= */
 
             let dataReport = null;
+            
 
             if (
               r.createdAt &&
@@ -2246,6 +2252,24 @@ async function exportContabilitaQ8Excel() {
         if (!reportAssociato) {
           return;
         }
+        let dataReportDettaglio = "";
+
+if (
+  r.createdAt &&
+  typeof r.createdAt.toDate === "function"
+) {
+
+  const d = r.createdAt.toDate();
+
+  dataReportDettaglio =
+    d.toLocaleDateString("it-IT") +
+    " " +
+    d.toLocaleTimeString("it-IT", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+}
+
 
         /* ================= DATI REPORT ================= */
 
@@ -2338,6 +2362,9 @@ async function exportContabilitaQ8Excel() {
           "Carta Q8":
             v.cartaQ8,
 
+            "Data":
+            dataReportDettaglio,
+
           "Conducente":
             r.conducente || "-",
 
@@ -2349,6 +2376,9 @@ async function exportContabilitaQ8Excel() {
 
           "N. Rifornimenti":
             numeroRifornimenti,
+
+            "Distretto":
+            r.distretto,
 
           "Litri Totali":
             Number(
@@ -2378,6 +2408,9 @@ async function exportContabilitaQ8Excel() {
 
       "Carta Q8":
         "",
+       
+        "Data":
+         "",
 
       "Conducente":
         "",
@@ -2390,6 +2423,9 @@ async function exportContabilitaQ8Excel() {
 
       "N. Rifornimenti":
         totaleGeneraleRifornimenti,
+
+        "Distretto":
+        "",
 
       "Litri Totali":
         Number(
@@ -2422,10 +2458,12 @@ async function exportContabilitaQ8Excel() {
       { wch: 25 }, // Modello
       { wch: 15 }, // Targa
       { wch: 18 }, // Carta Q8
+      {wch: 18},   // Data
       { wch: 25 }, // Conducente
       { wch: 15 }, // KM Partenza
       { wch: 15 }, // KM Arrivo
       { wch: 18 }, // N. Rifornimenti
+      { wch: 18},//Distretto
       { wch: 18 }, // Litri Totali
       { wch: 18 }  // Totale €
 
@@ -5176,6 +5214,7 @@ function reloadAll(){
   ){
     loadModificheReports();
   }
+   verificaReportGiornalieriMancanti();
 
 }
 function resetFiltroRichieste() {
@@ -5820,6 +5859,678 @@ async function controllaReportDuplicati() {
     console.error("Errore controllo duplicati:", err);
     alert("Errore durante il controllo dei report duplicati.");
   }
+}
+/* ============================================================
+   VERIFICA REPORT GIORNALIERI MANCANTI
+   ============================================================ */
+
+async function verificaReportGiornalieriMancanti() {
+
+  if (!accessGranted) return;
+
+  try {
+
+    const active = distrettoAttivo();
+
+    /* ========================================================
+       DATA DI OGGI
+       ======================================================== */
+
+    const oggi = new Date();
+
+    const inizioOggi = new Date(
+      oggi.getFullYear(),
+      oggi.getMonth(),
+      oggi.getDate(),
+      0, 0, 0, 0
+    );
+
+    const fineOggi = new Date(
+      oggi.getFullYear(),
+      oggi.getMonth(),
+      oggi.getDate(),
+      23, 59, 59, 999
+    );
+
+
+    /* ========================================================
+       CARICAMENTO DATI
+       ======================================================== */
+
+    const [
+      veicoliSnap,
+      richiesteSnap,
+      reportsSnap,
+      sostituzioniSnap
+    ] = await Promise.all([
+
+      db.collection("veicoli").get(),
+
+      db.collection("richieste").get(),
+
+      db.collection("reports").get(),
+
+      db.collection("sostituzioni_veicoli").get()
+
+    ]);
+
+
+    /* ========================================================
+       NORMALIZZAZIONE DISTRETTO
+       ======================================================== */
+
+    function normalizzaDistrettoLocale(valore) {
+
+      if (typeof valore === "number") {
+        return valore;
+      }
+
+      return Number(
+        String(valore || "")
+          .replace(/Distretto/gi, "")
+          .trim()
+      );
+
+    }
+
+
+    /* ========================================================
+       VEICOLI
+       ======================================================== */
+
+    const veicoli = [];
+
+    veicoliSnap.forEach(doc => {
+
+      const v = doc.data();
+
+      const distretto =
+        normalizzaDistrettoLocale(v.distretto);
+
+      if (
+        active !== "ALL" &&
+        distretto !== Number(active)
+      ) {
+        return;
+      }
+
+      veicoli.push({
+
+        id: doc.id,
+
+        targa:
+          normalizzaTarga(v.targa),
+
+        targaOriginale:
+          v.targa || "",
+
+        modello:
+          v.modello || "",
+
+        comparto:
+          String(v.comparto || "")
+            .trim()
+            .toUpperCase(),
+
+        distretto:
+
+          distretto,
+
+        statoVeicolo:
+          v.statoVeicolo || "Operativo"
+
+      });
+
+    });
+
+
+    /* ========================================================
+       REPORT DI OGGI
+       ======================================================== */
+
+    const reportsOggi = [];
+
+    reportsSnap.forEach(doc => {
+
+      const r = doc.data();
+
+      if (
+        !r.createdAt ||
+        typeof r.createdAt.toDate !== "function"
+      ) {
+        return;
+      }
+
+      const dataReport =
+        r.createdAt.toDate();
+
+      if (
+        dataReport < inizioOggi ||
+        dataReport > fineOggi
+      ) {
+        return;
+      }
+
+      const distretto =
+        normalizzaDistrettoLocale(r.distretto);
+
+      if (
+        active !== "ALL" &&
+        distretto !== Number(active)
+      ) {
+        return;
+      }
+
+      reportsOggi.push({
+
+        id: doc.id,
+
+        targa:
+          normalizzaTarga(r.targa),
+
+        distretto:
+          distretto,
+
+        comparto:
+          String(r.comparto || "")
+            .trim()
+            .toUpperCase(),
+
+        flusso:
+          String(r.flusso || "")
+            .trim()
+            .toLowerCase(),
+
+        createdAt:
+          dataReport
+
+      });
+
+    });
+
+
+    /* ========================================================
+       SOSTITUZIONI
+       ======================================================== */
+
+    const sostituzioni = [];
+
+    sostituzioniSnap.forEach(doc => {
+
+      const s = doc.data();
+
+      sostituzioni.push({
+
+        targaGuasto:
+          normalizzaTarga(s.targaGuasto),
+
+        targaSostituto:
+          normalizzaTarga(
+            String(s.targaSostituto || "")
+              .split(" - ")[0]
+          ),
+
+        dataInizio:
+          s.dataInizio &&
+          typeof s.dataInizio.toDate === "function"
+            ? s.dataInizio.toDate()
+            : null,
+
+        dataFine:
+          s.dataFine &&
+          typeof s.dataFine.toDate === "function"
+            ? s.dataFine.toDate()
+            : null,
+
+        stato:
+          s.stato || ""
+
+      });
+
+    });
+
+
+    /* ========================================================
+       FUNZIONE:
+       VERIFICA SE IL VEICOLO HA FATTO IL REPORT
+       ======================================================== */
+
+    function veicoloHaReportOggi(targa, distretto) {
+
+      const targaNormalizzata =
+        normalizzaTarga(targa);
+
+
+      /* ------------------------------------------------------
+         REPORT CON LA TARGA ORIGINALE
+         ------------------------------------------------------ */
+
+      const reportNormale =
+        reportsOggi.some(r => {
+
+          return (
+            r.distretto === distretto &&
+            r.targa === targaNormalizzata
+          );
+
+        });
+
+
+      if (reportNormale) {
+        return true;
+      }
+
+
+      /* ------------------------------------------------------
+         REPORT FATTO CON VEICOLO SOSTITUTIVO
+         ------------------------------------------------------ */
+
+      const sostituzioneAttiva =
+        sostituzioni.find(s => {
+
+          if (
+            s.targaGuasto !== targaNormalizzata
+          ) {
+            return false;
+          }
+
+          if (
+            s.stato !== "ATTIVA"
+          ) {
+            return false;
+          }
+
+          if (!s.dataInizio) {
+            return false;
+          }
+
+          if (
+            inizioOggi < s.dataInizio
+          ) {
+            return false;
+          }
+
+          if (
+            s.dataFine &&
+            inizioOggi > s.dataFine
+          ) {
+            return false;
+          }
+
+          return true;
+
+        });
+
+
+      if (!sostituzioneAttiva) {
+        return false;
+      }
+
+
+      return reportsOggi.some(r => {
+
+        return (
+          r.distretto === distretto &&
+          r.targa ===
+            sostituzioneAttiva.targaSostituto
+        );
+
+      });
+
+    }
+
+
+    /* ========================================================
+       1) SORVEGLIANZA
+       ======================================================== */
+
+    const veicoliSorveglianza =
+      veicoli.filter(v => {
+
+        return (
+          v.compartmento === "SORVEGLIANZA" ||
+          v.comparto === "SORVEGLIANZA"
+        );
+
+      });
+
+
+    const sorveglianzaMancanti = [];
+
+
+    veicoliSorveglianza.forEach(v => {
+
+      if (
+        !veicoloHaReportOggi(
+          v.targa,
+          v.distretto
+        )
+      ) {
+
+        sorveglianzaMancanti.push(v);
+
+      }
+
+    });
+
+
+    /* ========================================================
+       2) FORESTAZIONE / AIB
+       ======================================================== */
+
+    const richiesteFuori = [];
+
+
+    richiesteSnap.forEach(doc => {
+
+      const richiesta = doc.data();
+
+      const distretto =
+        normalizzaDistrettoLocale(
+          richiesta.distretto
+        );
+
+
+      if (
+        active !== "ALL" &&
+        distretto !== Number(active)
+      ) {
+        return;
+      }
+
+
+      /* DATA MISSIONE */
+
+      if (
+        !richiesta.dataMissione ||
+        typeof richiesta.dataMissione.toDate !== "function"
+      ) {
+        return;
+      }
+
+
+      const dataMissione =
+        richiesta.dataMissione.toDate();
+
+
+      if (
+        dataMissione < inizioOggi ||
+        dataMissione > fineOggi
+      ) {
+        return;
+      }
+
+
+      /* SOLO RICHIESTE APPROVATE */
+
+      if (
+        String(richiesta.status || "")
+          .trim()
+          .toLowerCase() !== "approvata"
+      ) {
+        return;
+      }
+
+
+      const comparto =
+        String(richiesta.comparto || "")
+          .trim()
+          .toUpperCase();
+
+
+      /* ESCLUDIAMO SORVEGLIANZA */
+
+      if (
+        comparto === "SORVEGLIANZA"
+      ) {
+        return;
+      }
+
+
+      const targa =
+        normalizzaTarga(
+          richiesta.veicoloTarga
+        );
+
+
+      if (!targa) {
+        return;
+      }
+
+
+      /* SE NON HA REPORT, È MANCANTE */
+
+      if (
+        !veicoloHaReportOggi(
+          targa,
+          distretto
+        )
+      ) {
+
+        richiesteFuori.push({
+
+          targa:
+            richiesta.veicoloTarga || "",
+
+          modello:
+            richiesta.veicoloModello || "",
+
+          comparto:
+            richiesta.comparto || "",
+
+          distretto:
+            distretto,
+
+          missione:
+            richiesta.missione || ""
+
+        });
+
+      }
+
+    });
+
+
+    /* ========================================================
+       CREAZIONE MESSAGGIO
+       ======================================================== */
+
+    let contenitore =
+      document.getElementById(
+        "avvisoReportGiornalieri"
+      );
+
+
+    if (!contenitore) {
+
+      contenitore =
+        document.createElement("div");
+
+      contenitore.id =
+        "avvisoReportGiornalieri";
+
+      const dashboard =
+        document.body;
+
+      dashboard.prepend(contenitore);
+
+    }
+
+
+    /* ========================================================
+       NESSUNA ANOMALIA
+       ======================================================== */
+
+    if (
+      sorveglianzaMancanti.length === 0 &&
+      richiesteFuori.length === 0
+    ) {
+
+      contenitore.innerHTML = "";
+
+      return;
+
+    }
+
+
+    /* ========================================================
+       COSTRUZIONE AVVISO
+       ======================================================== */
+
+    let html = `
+
+      <div style="
+        margin:15px;
+        padding:16px;
+        background:#fee2e2;
+        border:2px solid #dc2626;
+        border-radius:10px;
+        color:#991b1b;
+      ">
+
+        <div style="
+          font-size:18px;
+          font-weight:bold;
+          margin-bottom:10px;
+        ">
+
+          ⚠ REPORT GIORNALIERI MANCANTI
+
+        </div>
+
+    `;
+
+
+    /* --------------------------------------------------------
+       SORVEGLIANZA
+       -------------------------------------------------------- */
+
+    if (
+      sorveglianzaMancanti.length > 0
+    ) {
+
+      html += `
+
+        <div style="
+          margin-bottom:10px;
+        ">
+
+          <strong>
+            Sorveglianza:
+          </strong>
+
+          ${sorveglianzaMancanti.length}
+          report mancanti
+
+        </div>
+
+        <ul style="
+          margin-top:5px;
+        ">
+
+      `;
+
+
+      sorveglianzaMancanti.forEach(v => {
+
+        html += `
+
+          <li>
+            ${v.targaOriginale}
+            ${v.modello ? " - " + v.modello : ""}
+            - Distretto ${v.distretto}
+          </li>
+
+        `;
+
+      });
+
+
+      html += `</ul>`;
+
+    }
+
+
+    /* --------------------------------------------------------
+       FORESTAZIONE / AIB
+       -------------------------------------------------------- */
+
+    if (
+      richiesteFuori.length > 0
+    ) {
+
+      html += `
+
+        <div style="
+          margin-top:10px;
+          margin-bottom:10px;
+        ">
+
+          <strong>
+            Forestazione / AIB:
+          </strong>
+
+          ${richiesteFuori.length}
+          report mancanti
+
+        </div>
+
+        <ul style="
+          margin-top:5px;
+        ">
+
+      `;
+
+
+      richiesteFuori.forEach(r => {
+
+        html += `
+
+          <li>
+
+            ${r.targa}
+
+            ${r.modello
+              ? " - " + r.modello
+              : ""}
+
+            - ${r.comparto}
+
+            ${r.missione
+              ? " - " + r.missione
+              : ""}
+
+          </li>
+
+        `;
+
+      });
+
+
+      html += `</ul>`;
+
+    }
+
+
+    html += `
+
+      </div>
+
+    `;
+
+
+    contenitore.innerHTML = html;
+
+
+  } catch (err) {
+
+    console.error(
+      "Errore verifica report giornalieri:",
+      err
+    );
+
+  }
+
 }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
 
