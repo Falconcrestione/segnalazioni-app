@@ -1443,11 +1443,7 @@ db.collection("sostituzioni_veicoli").get().then(sostituzioniSnap => {
       ...doc.data()
     });
   });
-const sostituzioneTest = sostituzioniQ8.find(
-  s => s.veicoloSostitutoId === "yN6MeUmvsCGxsHoeflAa"
-);
 
-console.log("SOSTITUZIONE TEST:", sostituzioneTest);
 
   db.collection("veicoli").get().then(veicoliSnap => {
 
@@ -1714,19 +1710,7 @@ righeDettaglio.push({
   litriTotali: litriTotaliReport,
   totaleEuro: totaleEuroReport
 });
-       console.log(
-  "Q8 REPORT PRESO:",
-  {
-    id: r.id,
-    targa: r.targa,
-    distretto: r.distretto,
-    createdAt: r.createdAt
-      ? r.createdAt.toDate().toLocaleString("it-IT")
-      : null,
-    importoeuro: r.importoeuro,
-    rifornimenti: r.rifornimenti
-  }
-);
+
 let euroReportQ8 = 0;
 
 if (Array.isArray(r.rifornimenti) && r.rifornimenti.length > 0) {
@@ -1737,13 +1721,6 @@ if (Array.isArray(r.rifornimenti) && r.rifornimenti.length > 0) {
   euroReportQ8 = Number(r.importoeuro || 0);
 }
 
-console.log("EURO Q8 DI QUESTO REPORT:", {
-  id: r.id,
-  targa: r.targa,
-  importoeuro: r.importoeuro,
-  euroQ8: euroReportQ8,
-  rifornimenti: r.rifornimenti
-});
 
           /* Nuovo sistema: più rifornimenti */
        if (Array.isArray(r.rifornimenti)) {
@@ -1802,38 +1779,29 @@ else {
 
         
       });
-      righeDettaglio.forEach(riga => {
+      let htmlQ8 = "";
 
-  body.innerHTML += `
-    <tr>
+righeDettaglio.forEach(riga => {
 
-      <td>${riga.modello}</td>
-
-      <td>${riga.targa}</td>
-
-      <td>${riga.cartaQ8}</td>
-
-      <td>${riga.data}</td>
-
-      <td>${riga.conducente}</td>
-
-      <td>${riga.kmPartenza}</td>
-
-      <td>${riga.kmArrivo}</td>
-
-      <td>${riga.numeroRifornimenti}</td>
-
-      <td>${riga.distretto}</td>
-
-
-      <td>${riga.litriTotali.toFixed(2)} L</td>
-
-      <td>€ ${riga.totaleEuro.toFixed(2)}</td>
-
-    </tr>
-  `;
+  htmlQ8 += `
+    <tr>
+      <td>${riga.modello}</td>
+      <td>${riga.targa}</td>
+      <td>${riga.cartaQ8}</td>
+      <td>${riga.data}</td>
+      <td>${riga.conducente}</td>
+      <td>${riga.kmPartenza}</td>
+      <td>${riga.kmArrivo}</td>
+      <td>${riga.numeroRifornimenti}</td>
+      <td>${riga.distretto}</td>
+      <td>${riga.litriTotali.toFixed(2)} L</td>
+      <td>€ ${riga.totaleEuro.toFixed(2)}</td>
+    </tr>
+  `;
 
 });
+
+body.innerHTML = htmlQ8;
 
       totaleGenerale.innerHTML =
         `Totale generale: ${totaleLitriGenerale.toFixed(2)} L — € ${totaleEuroGenerale.toFixed(2)}`;
@@ -2534,10 +2502,16 @@ if (
 }
 
 /* ================= REPORTS ================= */
+let reportsListener = null;
 function loadReports() {
   if (!accessGranted) return;
 
-  db.collection("reports").onSnapshot(snap => {
+  if (reportsListener) {
+    reportsListener();
+    reportsListener = null;
+  }
+
+  reportsListener = db.collection("reports").onSnapshot(snap => {
 
     reportsCache = snap.docs
       .map(d => ({
@@ -2601,7 +2575,6 @@ if (Array.isArray(d.rifornimenti) && d.rifornimenti.length > 0) {
   <td>${d.comparto}</td>
   <td>${d.tipoVeicolo}</td>
   <td>${d.targa}</td>
-
   <td>${d.kmGiornalieri ?? "-"}</td>
 
   <td>
@@ -3076,12 +3049,19 @@ async function inviaMail(emailDestinatario,nomeDestinatario, veicoloTarga, dataM
 }
 
 /* ================= VEICOLI ================= */
+let veicoliListener = null;
+
 function loadVeicoli(){
   if(!accessGranted) return;
 
+  if (veicoliListener) {
+    veicoliListener();
+    veicoliListener = null;
+  }
+
   veicoliBody.innerHTML="";
 
-  db.collection("veicoli").onSnapshot(snap=>{
+  veicoliListener = db.collection("veicoli").onSnapshot(snap=>{
     veicoliBody.innerHTML="";
 
     snap.forEach(doc=>{
@@ -3690,8 +3670,8 @@ function exportReportsExcel() {
       "Tipo Veicolo": d.tipoVeicolo ?? "-",
       "Targa": d.targa ?? "-",
       "KM Giornalieri": d.kmGiornalieri ?? "-",
-      "PDF": d.pdf ?? "-",
-      "Foto": d.jpg ?? "-"
+     // "PDF": d.pdf ?? "-",
+     // "Foto": d.jpg ?? "-"
     };
 
     // 🔴 CASO 1: RIFORNIMENTI MULTIPLI
@@ -3741,8 +3721,8 @@ function exportReportsExcel() {
     "Quantità (L)": "",
     "Importo (€)": totaleEuro,
     "Prossimo Rifornimento Stimato": "",
-    "PDF": "",
-    "Foto": ""
+   // "PDF": "",
+   // "Foto": ""
   });
 
   const ws = XLSX.utils.json_to_sheet(exportData);
@@ -4506,44 +4486,51 @@ function loadModificheReports(){
 
   if(!body) return;
 
-  db.collection("modifiche_reports")
+  if (modificheReportsListener) {
+    modificheReportsListener();
+    modificheReportsListener = null;
+  }
+
+  modificheReportsListener =
+    db.collection("modifiche_reports")
     .orderBy("dataModifica","desc")
     .onSnapshot(snap => {
 
-      body.innerHTML = "";
+     let htmlModifiche = "";
 
-      snap.forEach(doc => {
+snap.forEach(doc => {
 
-        const d = doc.data();
+  const d = doc.data();
 
-        body.innerHTML += `
-          <tr>
-            <td>
-              ${
-                d.dataModifica
-                  ? d.dataModifica
-                      .toDate()
-                      .toLocaleString("it-IT")
-                  : "-"
-              }
-            </td>
+  htmlModifiche += `
+    <tr>
+      <td>
+        ${
+          d.dataModifica
+            ? d.dataModifica
+                .toDate()
+                .toLocaleString("it-IT")
+            : "-"
+        }
+      </td>
 
-            <td>${d.utente || "-"}</td>
+      <td>${d.utente || "-"}</td>
 
-            <td>${d.reportId || "-"}</td>
+      <td>${d.reportId || "-"}</td>
 
-            <td>${d.targa || "-"}</td>
+      <td>${d.targa || "-"}</td>
 
-            <td>${d.distretto || "-"}</td>
+      <td>${d.distretto || "-"}</td>
 
-            <td>${d.comparto || "-"}</td>
+      <td>${d.comparto || "-"}</td>
 
-            <td>${d.km || "-"}</td>
+      <td>${d.km || "-"}</td>
 
-          </tr>
-        `;
-      });
+    </tr>
+  `;
+});
 
+body.innerHTML = htmlModifiche;
     });
 
 }
@@ -5201,7 +5188,7 @@ function reloadAll(){
   loadReports();
 
   loadVeicoli();
-  loadContabilitaQ8();
+  //loadContabilitaQ8();
    loadManutenzioni();
    caricaFiltroManutenzioni();
 
