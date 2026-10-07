@@ -639,10 +639,13 @@ tbody tr:not([style]):hover td {
   <th>Carta Q8</th>
   <th>Data</th>
   <th>Conducente</th>
+  <th>Comparto</th>
   <th>KM Partenza</th>
   <th>KM Arrivo</th>
+  <th>KM Giornalieri</th>
+  <th>Rifornimento a KM</th>
   <th>N. Rifornimenti</th>
-   <th>Distretto</th>
+  <th>Distretto</th>
   <th>Litri Totali</th>
   <th>Totale €</th>
 </tr>
@@ -1698,17 +1701,22 @@ if (
 }
 
 righeDettaglio.push({
-  modello: v.modello,
-  targa: v.targa,
-  cartaQ8: v.cartaQ8,
-  data: dataReportDettaglio,
-  conducente: r.conducente || "—",
-  kmPartenza: r.kmPartenza ?? "—",
-  kmArrivo: r.kmArrivo ?? "—",
-  numeroRifornimenti: numeroRifornimentiReport,
-  distretto:r.distretto,
-  litriTotali: litriTotaliReport,
-  totaleEuro: totaleEuroReport
+  modello: v.modello,
+  targa: v.targa,
+  cartaQ8: v.cartaQ8,
+  data: dataReportDettaglio,
+  conducente: r.conducente || "—",
+  comparto: r.comparto || "—",
+  kmPartenza: r.kmPartenza ?? "—",
+  kmArrivo: r.kmArrivo ?? "—",
+  kmGiornalieri: r.kmGiornalieri ?? "—",
+  rifornimentoKm: Array.isArray(r.rifornimenti)
+    ? r.rifornimenti.map(rif => rif.km ?? "—").join("<br>")
+    : (r.rifornimentoKm ?? "—"),
+  numeroRifornimenti: numeroRifornimentiReport,
+  distretto: r.distretto,
+  litriTotali: litriTotaliReport,
+  totaleEuro: totaleEuroReport
 });
 
 let euroReportQ8 = 0;
@@ -1790,8 +1798,11 @@ righeDettaglio.forEach(riga => {
       <td>${riga.cartaQ8}</td>
       <td>${riga.data}</td>
       <td>${riga.conducente}</td>
+      <td>${riga.comparto}</td>
       <td>${riga.kmPartenza}</td>
       <td>${riga.kmArrivo}</td>
+      <td>${riga.kmGiornalieri}</td>
+      <td>${riga.rifornimentoKm}</td>
       <td>${riga.numeroRifornimenti}</td>
       <td>${riga.distretto}</td>
       <td>${riga.litriTotali.toFixed(2)} L</td>
@@ -2317,48 +2328,61 @@ if (
         totaleGeneraleRifornimenti +=
           numeroRifornimenti;
 
-        /* ================= RIGA EXCEL ================= */
+       /* ================= RIGA EXCEL ================= */
 
-        datiExcel.push({
+datiExcel.push({
 
-          "Modello":
-            v.modello,
+  "Modello":
+    v.modello,
 
-          "Targa":
-            v.targa,
+  "Targa":
+    v.targa,
 
-          "Carta Q8":
-            v.cartaQ8,
+  "Carta Q8":
+    v.cartaQ8,
 
-            "Data":
-            dataReportDettaglio,
+  "Data":
+    dataReportDettaglio,
 
-          "Conducente":
-            r.conducente || "-",
+  "Conducente":
+    r.conducente || "-",
 
-          "KM Partenza":
-            r.kmPartenza ?? "-",
+  "Comparto":
+    r.comparto || "-",
 
-          "KM Arrivo":
-            r.kmArrivo ?? "-",
+  "KM Partenza":
+    r.kmPartenza ?? "-",
 
-          "N. Rifornimenti":
-            numeroRifornimenti,
+  "KM Arrivo":
+    r.kmArrivo ?? "-",
 
-            "Distretto":
-            r.distretto,
+  "KM Giornalieri":
+    r.kmGiornalieri ?? "-",
 
-          "Litri Totali":
-            Number(
-              litriTotali.toFixed(2)
-            ),
+  "Rifornimento a KM":
+    Array.isArray(r.rifornimenti)
+      ? r.rifornimenti
+          .map(rif => rif.km ?? "-")
+          .join(", ")
+      : (r.rifornimentoKm ?? "-"),
 
-          "Totale €":
-            Number(
-              totaleEuro.toFixed(2)
-            )
+  "N. Rifornimenti":
+    numeroRifornimenti,
 
-        });
+  "Distretto":
+    r.distretto ?? "-",
+
+  "Litri Totali":
+    Number(
+      litriTotali.toFixed(2)
+    ),
+
+  "Totale €":
+    Number(
+      totaleEuro.toFixed(2)
+    )
+
+});
 
       });
 
@@ -3671,7 +3695,7 @@ function exportReportsExcel() {
       "Targa": d.targa ?? "-",
       "KM Giornalieri": d.kmGiornalieri ?? "-",
      // "PDF": d.pdf ?? "-",
-     // "Foto": d.jpg ?? "-"
+      "Foto": d.jpg ?? "-"
     };
 
     // 🔴 CASO 1: RIFORNIMENTI MULTIPLI
@@ -3722,7 +3746,7 @@ function exportReportsExcel() {
     "Importo (€)": totaleEuro,
     "Prossimo Rifornimento Stimato": "",
    // "PDF": "",
-   // "Foto": ""
+    "Foto": ""
   });
 
   const ws = XLSX.utils.json_to_sheet(exportData);
@@ -4545,30 +4569,38 @@ async function loadManutenzioni(){
   const oggi = new Date();
   const mese = oggi.getMonth() + 1;
   const anno = oggi.getFullYear();
+  const active = distrettoAttivo();
 
   try{
 
-    const veicoliSnap = await db.collection("veicoli").get();
+   const veicoliSnap = await db.collection("veicoli").get();
 
-    for(const doc of veicoliSnap.docs){
+const manutenzioniSnap = await db.collection("manutenzioni")
+  .where("mese","==",mese)
+  .where("anno","==",anno)
+  .get();
 
+const manutenzioniMap = new Map();
+
+manutenzioniSnap.forEach(doc => {
+  const m = doc.data();
+
+  manutenzioniMap.set(m.veicoloId, m);
+});
+
+for(const doc of veicoliSnap.docs){
       const v = doc.data();
 
       if(typeof v.distretto !== "number") continue;
 
-      const active = distrettoAttivo();
+      //const active = distrettoAttivo();
 
       if(active !== "ALL" && v.distretto !== active){
         continue;
       }
 
       // cerca manutenzione del mese
-      const manutenzioneSnap = await db.collection("manutenzioni")
-        .where("veicoloId","==",doc.id)
-        .where("mese","==",mese)
-        .where("anno","==",anno)
-        .get();
-
+     const m = manutenzioniMap.get(doc.id);
       let ultima = "-";
       let stato = "🔴 Da compilare";
       let bottone = `
@@ -4577,9 +4609,8 @@ async function loadManutenzioni(){
         </button>
       `;
 
-      if(!manutenzioneSnap.empty){
+      if(m){
 
-        const m = manutenzioneSnap.docs[0].data();
 
         ultima = m.data
           ? m.data.toDate().toLocaleDateString("it-IT")
