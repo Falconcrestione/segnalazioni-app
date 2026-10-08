@@ -1241,19 +1241,24 @@ onBlur={() => {
                           compilati KM, litri e importo.
                         </p>
 
-                        <input
-                          id={`rifornimento-foto-${index}`}
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) =>
-                            updateRifornimento(
-                              index,
-                              "foto",
-                              e.target.files?.[0] || null
-                            )
-                          }
-                          className="block min-h-[48px] w-full border border-[#8a9bab] bg-white p-2 text-sm text-[#17324d] file:mr-4 file:min-h-[36px] file:border-0 file:bg-[#e8eef3] file:px-4 file:font-semibold file:text-[#17324d] hover:file:bg-[#dbe5ed]"
-                        />
+                       <input
+  id={`rifornimento-foto-${index}`}
+  type="file"
+  accept="image/*"
+  disabled={
+    !r.km.trim() ||
+    !r.litri.trim() ||
+    !r.euro.trim()
+  }
+  onChange={(e) => {
+    updateRifornimento(
+      index,
+      "foto",
+      e.target.files?.[0] || null
+    );
+  }}
+  className="block min-h-[48px] w-full border border-[#8a9bab] bg-white p-2 text-sm text-[#17324d] file:mr-4 file:min-h-[36px] file:border-0 file:bg-[#e8eef3] file:px-4 file:font-semibold file:text-[#17324d] hover:file:bg-[#dbe5ed] disabled:cursor-not-allowed disabled:opacity-50"
+/>
 
                       </div>
 
