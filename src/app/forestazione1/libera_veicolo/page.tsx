@@ -478,31 +478,51 @@ Per Benzina e Gasolio inserire 0`
     if (!comparto || !tipoVeicolo || !targa)
       return alert("Compila tutti i campi");
 
-    // 🔎 Controllo che il veicolo appartenga al distretto selezionato
-const veicoloSnap = await getDocs(
-  query(
-    collection(db, "veicoli"),
-    where("targa", "==", targa)
-  )
+  // 🔎 Controllo che la targa appartenga al distretto selezionato
+const veicoliSnap = await getDocs(
+  collection(db, "veicoli")
 );
 
-if (veicoloSnap.empty) {
-  return alert(
-    `⚠️ Veicolo non trovato.\n\nLa targa ${targa} non risulta presente nell'elenco dei veicoli.`
-  );
+const targaSelezionata = String(targa || "")
+  .toUpperCase()
+  .replace(/\s+/g, "")
+  .trim();
+
+const veicoloTrovato = veicoliSnap.docs.find((docSnap) => {
+  const v = docSnap.data();
+
+  const targaVeicolo = String(v.targa || "")
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .trim();
+
+  return targaVeicolo === targaSelezionata;
+});
+
+// Se la targa esiste, controlliamo il distretto
+if (veicoloTrovato) {
+  const v = veicoloTrovato.data();
+
+  // Nel database: 3
+  const distrettoVeicolo = Number(v.distretto);
+
+  // Nel form: "Distretto 3"
+  const matchDistretto = String(distretto || "").match(/\d+/);
+  const distrettoSelezionato = matchDistretto
+    ? Number(matchDistretto[0])
+    : null;
+
+  if (
+    distrettoSelezionato !== null &&
+    distrettoVeicolo !== distrettoSelezionato
+  ) {
+    return alert(
+      `⚠️ HAI SELEZIONATO IL DISTRETTO SBAGLIATO!\n\n` +
+      `La targa ${targa} appartiene al Distretto ${distrettoVeicolo}.\n` +
+      `Hai selezionato ${distretto}.`
+    );
+  }
 }
-
-const veicoloData = veicoloSnap.docs[0].data();
-
-if (veicoloData.distretto !== distretto) {
-  return alert(
-    `⚠️ HAI SELEZIONATO IL DISTRETTO SBAGLIATO!\n\n` +
-    `La targa ${targa} appartiene a ${veicoloData.distretto}.\n` +
-    `Hai selezionato ${distretto}.\n\n` +
-    `Controlla il distretto prima di inviare il report.`
-  );
-}
-
     if (!latLng)
       return alert("Posizione non disponibile");
 
