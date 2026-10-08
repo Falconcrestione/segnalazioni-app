@@ -478,6 +478,31 @@ Per Benzina e Gasolio inserire 0`
     if (!comparto || !tipoVeicolo || !targa)
       return alert("Compila tutti i campi");
 
+    // 🔎 Controllo che il veicolo appartenga al distretto selezionato
+const veicoloSnap = await getDocs(
+  query(
+    collection(db, "veicoli"),
+    where("targa", "==", targa)
+  )
+);
+
+if (veicoloSnap.empty) {
+  return alert(
+    `⚠️ Veicolo non trovato.\n\nLa targa ${targa} non risulta presente nell'elenco dei veicoli.`
+  );
+}
+
+const veicoloData = veicoloSnap.docs[0].data();
+
+if (veicoloData.distretto !== distretto) {
+  return alert(
+    `⚠️ HAI SELEZIONATO IL DISTRETTO SBAGLIATO!\n\n` +
+    `La targa ${targa} appartiene a ${veicoloData.distretto}.\n` +
+    `Hai selezionato ${distretto}.\n\n` +
+    `Controlla il distretto prima di inviare il report.`
+  );
+}
+
     if (!latLng)
       return alert("Posizione non disponibile");
 
