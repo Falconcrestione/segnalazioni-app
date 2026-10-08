@@ -103,9 +103,27 @@ export default function Home() {
 
         <section aria-labelledby="servizi-title">
 
-          <h2 id="servizi-title" style={sectionTitle}>
-            Servizi disponibili
-          </h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+  <h2 id="servizi-title" style={sectionTitle}>
+    Servizi disponibili
+  </h2>
+
+  <a
+    href="/regolamento_veicoli_aziendali.pdf"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      background: "#8b1e1e",
+      color: "#fff",
+      padding: "12px 18px",
+      borderRadius: "4px",
+      textDecoration: "none",
+      fontWeight: 600,
+    }}
+  >
+    📄 Regolamento veicoli aziendali
+  </a>
+</div>
 
           <p style={sectionDescription}>
             Seleziona il servizio che desideri utilizzare.
