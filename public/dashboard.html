@@ -542,6 +542,51 @@ tbody tr:not([style]):hover td {
 </div>
 
 </div>
+<!-- TABELLA MODIFICHE REPORTS: INVARIATA -->
+<div id="modificheContainer" style="display:none;">
+
+  <h2>📋 Modifiche Reports</h2>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Utente</th>
+          <th>ID Report</th>
+          <th>Targa</th>
+          <th>Distretto</th>
+          <th>Comparto</th>
+          <th>KM</th>
+        </tr>
+      </thead>
+      <tbody id="modificheBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- AVVISI: BLOCCO SEPARATO, FUORI DALLA TABELLA -->
+<div id="avvisiContainer"
+     style="display:none; margin:20px 0; padding:15px; border:1px solid #ccc; border-radius:8px; background:#fff;">
+
+  <h2>📢 Avviso agli operatori</h2>
+
+  <label for="testoAvviso"><b>Messaggio da comunicare a tutti i distretti</b></label>
+
+  <textarea id="testoAvviso" rows="5"
+    style="width:100%; box-sizing:border-box; margin-top:8px; padding:10px;"
+    placeholder="Scrivi qui il messaggio..."></textarea>
+
+  <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+    <button type="button" onclick="pubblicaAvviso()">📢 Pubblica avviso</button>
+    <button type="button" onclick="disattivaAvviso()">🔕 Disattiva avviso</button>
+  </div>
+
+  <p id="statoAvviso" style="margin-top:10px;"></p>
+
+</div>
+
 
 <h2>🚗 Veicoli</h2>
 
@@ -1143,6 +1188,7 @@ if (user === "sede_centrale") {
   document.getElementById(
     "modificheContainer"
   ).style.display = "block";
+  document.getElementById("avvisiContainer").style.display = "block";
 
 } else {
 
@@ -1155,7 +1201,8 @@ if (user === "sede_centrale") {
     "modificheContainer"
   ).style.display = "none";
 }
-   reloadAll();
+      reloadAll();
+   controllaAvvisoOperatori(user);
 }
 
 function distrettoAttivo() {
@@ -3170,6 +3217,24 @@ style="background:#dc3545;color:white;margin-bottom:5px;">
   🔄 Cambia Stato
 </button>
 
+<br>
+${
+  String(v.statoVeicolo || "").trim().toLowerCase() === "restituito"
+    ? `
+      <button
+        onclick="annullaRestituzioneVeicolo('${doc.id}', '${(v.targa || "").replace(/'/g, "\\'")}')"
+        style="background:#1976d2;color:white;margin-top:5px;">
+        ↩️ Annulla restituzione
+      </button>
+    `
+    : `
+      <button
+        onclick="restituisciVeicolo('${doc.id}', '${(v.targa || "").replace(/'/g, "\\'")}')"
+        style="background:#795548;color:white;margin-top:5px;">
+        📦 Restituisci veicolo
+      </button>
+    `
+}
   </td>
 </tr>
 `;
@@ -3614,6 +3679,108 @@ async function toggleStatoVeicolo(id, statoAttuale){
 
   }
 
+}
+
+
+async function restituisciVeicolo(id, targa) {
+
+  if (distrettoSelector.value !== "sede_centrale") {
+    alert("Operazione consentita solo alla Sede Centrale");
+    return;
+  }
+
+  const conferma = confirm(
+    "Confermi la restituzione definitiva del veicolo " +
+    targa +
+    "?\n\nIl veicolo resterà nell'archivio e i report storici non verranno eliminati."
+  );
+
+  if (!conferma) return;
+
+  try {
+
+    const veicoloRef = db.collection("veicoli").doc(id);
+    const veicoloSnap = await veicoloRef.get();
+
+    if (!veicoloSnap.exists) {
+      alert("Veicolo non trovato");
+      return;
+    }
+
+    const veicolo = veicoloSnap.data();
+
+    if (
+      String(veicolo.statoVeicolo || "")
+        .trim()
+        .toLowerCase() === "in riparazione"
+    ) {
+      alert(
+        "Il veicolo risulta in riparazione. " +
+        "Verifica prima la sostituzione temporanea associata."
+      );
+      return;
+    }
+
+    await veicoloRef.update({
+      statoVeicolo: "Restituito",
+      veicoloSostitutoId: "",
+      veicoloSostituto: ""
+    });
+
+    alert(
+      "Veicolo " + targa +
+      " contrassegnato come restituito. " +
+      "Lo storico è stato conservato."
+    );
+
+  } catch (err) {
+
+    console.error("Errore restituzione veicolo:", err);
+    alert("Errore durante la restituzione del veicolo");
+
+  }
+}
+
+
+async function annullaRestituzioneVeicolo(id, targa) {
+  if (distrettoSelector.value !== "sede_centrale") {
+    alert("Operazione consentita solo alla Sede Centrale");
+    return;
+  }
+
+  if (!confirm(
+    "Confermi di annullare la restituzione del veicolo " +
+    targa + "?"
+  )) return;
+
+  try {
+    const ref = db.collection("veicoli").doc(id);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+      alert("Veicolo non trovato");
+      return;
+    }
+
+    if (
+      String(snap.data().statoVeicolo || "")
+        .trim()
+        .toLowerCase() !== "restituito"
+    ) {
+      alert("Il veicolo non risulta restituito.");
+      return;
+    }
+
+    await ref.update({
+      statoVeicolo: "Operativo"
+    });
+
+    alert("Restituzione annullata. Veicolo nuovamente Operativo.");
+
+  } catch (err) {
+    console.error(err);
+    alert("Errore durante l'annullamento della restituzione.");
+  }
 }
 function exportReportsExcel() {
   if (!reportsCache || reportsCache.length === 0) {
@@ -5915,23 +6082,26 @@ async function verificaReportGiornalieriMancanti() {
        CARICAMENTO DATI
        ======================================================== */
 
-    const [
-      veicoliSnap,
-      richiesteSnap,
-      reportsSnap,
-      sostituzioniSnap
-    ] = await Promise.all([
+    
+const [
+  veicoliSnap,
+  richiesteSnap,
+  reportsSnap,
+  sostituzioniSnap,
+  comunicazioniSnap
+] = await Promise.all([
 
-      db.collection("veicoli").get(),
+  db.collection("veicoli").get(),
 
-      db.collection("richieste").get(),
+  db.collection("richieste").get(),
 
-      db.collection("reports").get(),
+  db.collection("reports").get(),
 
-      db.collection("sostituzioni_veicoli").get()
+  db.collection("sostituzioni_veicoli").get(),
 
-    ]);
+  db.collection("comunicazioni_mancato_servizio").get()
 
+]);
 
     /* ========================================================
        NORMALIZZAZIONE DISTRETTO
@@ -5958,12 +6128,22 @@ async function verificaReportGiornalieriMancanti() {
 
     const veicoli = [];
 
-    veicoliSnap.forEach(doc => {
+   veicoliSnap.forEach(doc => {
 
-      const v = doc.data();
+  const v = doc.data();
 
-      const distretto =
-        normalizzaDistrettoLocale(v.distretto);
+  // Escludi i veicoli restituiti dal controllo
+  // dei report giornalieri mancanti.
+  if (
+    String(v.statoVeicolo || "")
+      .trim()
+      .toLowerCase() === "restituito"
+  ) {
+    return;
+  }
+
+  const distretto =
+    normalizzaDistrettoLocale(v.distretto);
 
       if (
         active !== "ALL" &&
@@ -6107,6 +6287,83 @@ async function verificaReportGiornalieriMancanti() {
 
     });
 
+    
+/* ========================================================
+   COMUNICAZIONI DI MANCATO SERVIZIO VALIDE OGGI
+   ======================================================== */
+
+const oggiKey =
+  `${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, "0")}-${String(oggi.getDate()).padStart(2, "0")}`;
+
+const comunicazioniOggi = [];
+
+comunicazioniSnap.forEach(doc => {
+
+  const c = doc.data();
+
+  if (
+    String(c.stato || "").trim().toLowerCase() !== "attiva"
+  ) {
+    return;
+  }
+
+  const dataInizio = String(c.dataInizio || "").trim();
+  const dataFine = String(c.dataFine || "").trim();
+
+  if (!dataInizio || !dataFine) {
+    return;
+  }
+
+  // Entrambe le date sono comprese nel periodo.
+  if (oggiKey < dataInizio || oggiKey > dataFine) {
+    return;
+  }
+
+  const distretto =
+    normalizzaDistrettoLocale(c.distretto);
+
+  if (
+    active !== "ALL" &&
+    distretto !== Number(active)
+  ) {
+    return;
+  }
+
+  comunicazioniOggi.push({
+    targa: normalizzaTarga(c.targa),
+    distretto: distretto,
+    comparto: String(c.comparto || "").trim().toUpperCase(),
+    dataInizio: dataInizio,
+    dataFine: dataFine,
+    motivazione: c.motivazione || ""
+  });
+
+});
+
+
+/* ========================================================
+   VERIFICA COMUNICAZIONE PER VEICOLO E COMPARTO
+   ======================================================== */
+
+function comunicazioneValidaOggi(targa, distretto, comparto) {
+
+  const targaNormalizzata = normalizzaTarga(targa);
+
+  const compartoNormalizzato =
+    String(comparto || "").trim().toUpperCase();
+
+  return comunicazioniOggi.some(c => {
+
+    return (
+      c.targa === targaNormalizzata &&
+      c.distretto === distretto &&
+      c.comparto === compartoNormalizzato
+    );
+
+  });
+
+}
+
 
     /* ========================================================
        FUNZIONE:
@@ -6216,21 +6473,29 @@ async function verificaReportGiornalieriMancanti() {
     const sorveglianzaMancanti = [];
 
 
-    veicoliSorveglianza.forEach(v => {
+    
+veicoliSorveglianza.forEach(v => {
 
-      if (
-        !veicoloHaReportOggi(
-          v.targa,
-          v.distretto
-        )
-      ) {
+  const comunicazioneValida =
+    comunicazioneValidaOggi(
+      v.targa,
+      v.distretto,
+      v.comparto
+    );
 
-        sorveglianzaMancanti.push(v);
+  if (
+    !comunicazioneValida &&
+    !veicoloHaReportOggi(
+      v.targa,
+      v.distretto
+    )
+  ) {
 
-      }
+    sorveglianzaMancanti.push(v);
 
-    });
+  }
 
+});
 
     /* ========================================================
        2) FORESTAZIONE / AIB
@@ -6318,12 +6583,18 @@ async function verificaReportGiornalieriMancanti() {
 
       /* SE NON HA REPORT, È MANCANTE */
 
-      if (
-        !veicoloHaReportOggi(
-          targa,
-          distretto
-        )
-      ) {
+      
+if (
+  !comunicazioneValidaOggi(
+    targa,
+    distretto,
+    comparto
+  ) &&
+  !veicoloHaReportOggi(
+    targa,
+    distretto
+  )
+) {
 
         richiesteFuori.push({
 
@@ -6375,169 +6646,171 @@ async function verificaReportGiornalieriMancanti() {
     }
 
 
-    /* ========================================================
-       NESSUNA ANOMALIA
-       ======================================================== */
+   
+/* ========================================================
+   COSTRUZIONE AVVISI DASHBOARD
+   ======================================================== */
 
-    if (
-      sorveglianzaMancanti.length === 0 &&
-      richiesteFuori.length === 0
-    ) {
+if (
+  sorveglianzaMancanti.length === 0 &&
+  richiesteFuori.length === 0 &&
+  comunicazioniOggi.length === 0
+) {
+  contenitore.innerHTML = "";
+  return;
+}
 
-      contenitore.innerHTML = "";
+function escapeHtmlComunicazione(valore) {
+  return String(valore || "").replace(/[&<>"']/g, carattere => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[carattere]);
+}
 
-      return;
-
-    }
+let html = "";
 
 
-    /* ========================================================
-       COSTRUZIONE AVVISO
-       ======================================================== */
+/* --------------------------------------------------------
+   AVVISO REPORT MANCANTI
+   -------------------------------------------------------- */
 
-    let html = `
+if (
+  sorveglianzaMancanti.length > 0 ||
+  richiesteFuori.length > 0
+) {
+
+  html += `
+    <div style="
+      margin:15px;
+      padding:16px;
+      background:#fee2e2;
+      border:2px solid #dc2626;
+      border-radius:10px;
+      color:#991b1b;
+    ">
 
       <div style="
-        margin:15px;
-        padding:16px;
-        background:#fee2e2;
-        border:2px solid #dc2626;
-        border-radius:10px;
-        color:#991b1b;
+        font-size:18px;
+        font-weight:bold;
+        margin-bottom:10px;
       ">
+        ⚠ REPORT GIORNALIERI MANCANTI
+      </div>
+  `;
 
-        <div style="
-          font-size:18px;
-          font-weight:bold;
-          margin-bottom:10px;
-        ">
-
-          ⚠ REPORT GIORNALIERI MANCANTI
-
-        </div>
-
-    `;
-
-
-    /* --------------------------------------------------------
-       SORVEGLIANZA
-       -------------------------------------------------------- */
-
-    if (
-      sorveglianzaMancanti.length > 0
-    ) {
-
-      html += `
-
-        <div style="
-          margin-bottom:10px;
-        ">
-
-          <strong>
-            Sorveglianza:
-          </strong>
-
-          ${sorveglianzaMancanti.length}
-          report mancanti
-
-        </div>
-
-        <ul style="
-          margin-top:5px;
-        ">
-
-      `;
-
-
-      sorveglianzaMancanti.forEach(v => {
-
-        html += `
-
-          <li>
-            ${v.targaOriginale}
-            ${v.modello ? " - " + v.modello : ""}
-            - Distretto ${v.distretto}
-          </li>
-
-        `;
-
-      });
-
-
-      html += `</ul>`;
-
-    }
-
-
-    /* --------------------------------------------------------
-       FORESTAZIONE / AIB
-       -------------------------------------------------------- */
-
-    if (
-      richiesteFuori.length > 0
-    ) {
-
-      html += `
-
-        <div style="
-          margin-top:10px;
-          margin-bottom:10px;
-        ">
-
-          <strong>
-            Forestazione / AIB:
-          </strong>
-
-          ${richiesteFuori.length}
-          report mancanti
-
-        </div>
-
-        <ul style="
-          margin-top:5px;
-        ">
-
-      `;
-
-
-      richiesteFuori.forEach(r => {
-
-        html += `
-
-          <li>
-
-            ${r.targa}
-
-            ${r.modello
-              ? " - " + r.modello
-              : ""}
-
-            - ${r.comparto}
-
-            ${r.missione
-              ? " - " + r.missione
-              : ""}
-
-          </li>
-
-        `;
-
-      });
-
-
-      html += `</ul>`;
-
-    }
-
+  if (sorveglianzaMancanti.length > 0) {
 
     html += `
-
+      <div style="margin-bottom:10px;">
+        <strong>Sorveglianza:</strong>
+        ${sorveglianzaMancanti.length} report mancanti
       </div>
-
+      <ul style="margin-top:5px;">
     `;
 
+    sorveglianzaMancanti.forEach(v => {
 
-    contenitore.innerHTML = html;
+      html += `
+        <li>
+          ${escapeHtmlComunicazione(v.targaOriginale)}
+          ${v.modello ? " - " + escapeHtmlComunicazione(v.modello) : ""}
+          - Distretto ${v.distretto}
+        </li>
+      `;
+
+    });
+
+    html += `</ul>`;
+  }
+
+  if (richiesteFuori.length > 0) {
+
+    html += `
+      <div style="margin-top:10px;margin-bottom:10px;">
+        <strong>Forestazione / AIB:</strong>
+        ${richiesteFuori.length} report mancanti
+      </div>
+      <ul style="margin-top:5px;">
+    `;
+
+    richiesteFuori.forEach(r => {
+
+      html += `
+        <li>
+          ${escapeHtmlComunicazione(r.targa)}
+          ${r.modello ? " - " + escapeHtmlComunicazione(r.modello) : ""}
+          - ${escapeHtmlComunicazione(r.comparto)}
+          ${r.missione ? " - " + escapeHtmlComunicazione(r.missione) : ""}
+        </li>
+      `;
+
+    });
+
+    html += `</ul>`;
+  }
+
+  html += `</div>`;
+}
+
+
+/* --------------------------------------------------------
+   AVVISO COMUNICAZIONI DI MANCATO SERVIZIO
+   -------------------------------------------------------- */
+
+if (comunicazioniOggi.length > 0) {
+
+  html += `
+    <div style="
+      margin:15px;
+      padding:16px;
+      background:#fef3c7;
+      border:2px solid #d97706;
+      border-radius:10px;
+      color:#92400e;
+    ">
+
+      <div style="
+        font-size:18px;
+        font-weight:bold;
+        margin-bottom:10px;
+      ">
+        ℹ COMUNICAZIONI DI MANCATO SERVIZIO ATTIVE
+      </div>
+
+      <ul style="margin-top:5px;">
+  `;
+
+  comunicazioniOggi.forEach(c => {
+
+    html += `
+      <li style="margin-bottom:10px;">
+        <strong>Targa:</strong>
+        ${escapeHtmlComunicazione(c.targa)}
+        - <strong>Distretto:</strong> ${c.distretto}
+        - <strong>Comparto:</strong>
+        ${escapeHtmlComunicazione(c.comparto)}
+        <br>
+        <strong>Periodo:</strong>
+        ${escapeHtmlComunicazione(c.dataInizio)}
+        – ${escapeHtmlComunicazione(c.dataFine)}
+        <br>
+        <strong>Motivazione:</strong>
+        ${escapeHtmlComunicazione(c.motivazione)}
+      </li>
+    `;
+
+  });
+
+  html += `
+      </ul>
+    </div>
+  `;
+}
+
+contenitore.innerHTML = html;
 
 
   } catch (err) {
@@ -6553,7 +6826,138 @@ async function verificaReportGiornalieriMancanti() {
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
 
 clearAllTables();
+
+/* ================ AVVISI OPERATORI ================ */
+
+async function pubblicaAvviso() {
+  if (!accessGranted || distrettoSelector.value !== "sede_centrale") {
+    alert("Operazione consentita solo alla sede centrale.");
+    return;
+  }
+
+  const testo = document.getElementById("testoAvviso").value.trim();
+
+  if (!testo) {
+    alert("Scrivi prima il messaggio da pubblicare.");
+    return;
+  }
+
+  try {
+    await db.collection("avvisi").doc("operatori").set({
+      testo: testo,
+      attivo: true,
+      aggiornato: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    document.getElementById("statoAvviso").textContent =
+      "Avviso pubblicato e attivo per tutti i distretti.";
+
+    alert("Avviso pubblicato correttamente.");
+  } catch (errore) {
+    console.error("Errore pubblicazione avviso:", errore);
+    alert("Errore durante la pubblicazione dell'avviso.");
+  }
+}
+
+
+async function disattivaAvviso() {
+  if (!accessGranted || distrettoSelector.value !== "sede_centrale") {
+    alert("Operazione consentita solo alla sede centrale.");
+    return;
+  }
+
+  if (!confirm("Vuoi disattivare l'avviso per tutti i distretti?")) {
+    return;
+  }
+
+  try {
+    await db.collection("avvisi").doc("operatori").set({
+      attivo: false,
+      aggiornato: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    document.getElementById("statoAvviso").textContent =
+      "Avviso disattivato.";
+
+    alert("Avviso disattivato per tutti i distretti.");
+  } catch (errore) {
+    console.error("Errore disattivazione avviso:", errore);
+    alert("Errore durante la disattivazione dell'avviso.");
+  }
+}
+async function controllaAvvisoOperatori(user) {
+  if (!accessGranted || user === "sede_centrale") return;
+
+  try {
+    const doc = await db.collection("avvisi")
+      .doc("operatori")
+      .get();
+
+    if (!doc.exists) return;
+
+    const avviso = doc.data();
+
+    if (avviso.attivo !== true || !avviso.testo) return;
+
+    document.getElementById("testoAvvisoOperatore").textContent =
+      avviso.testo;
+
+    document.getElementById("modalAvvisoOperatori").style.display = "flex";
+
+  } catch (errore) {
+    console.error("Errore lettura avviso:", errore);
+    alert("Non è stato possibile caricare l'avviso della sede centrale.");
+  }
+}
+
+
+async function confermaLetturaAvviso() {
+  const user = distrettoSelector.value;
+
+  try {
+    await db.collection("avvisi")
+      .doc("operatori")
+      .collection("letture")
+      .doc(user)
+      .set({
+        lettoAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+    document.getElementById("modalAvvisoOperatori").style.display = "none";
+
+  } catch (errore) {
+    console.error("Errore conferma lettura:", errore);
+    alert("Non è stato possibile registrare la conferma. Riprova.");
+  }
+}
+
+
+
 </script>
+<!-- FINESTRA AVVISO OPERATORI -->
+<div id="modalAvvisoOperatori"
+     style="display:none; position:fixed; inset:0; z-index:99999;
+            background:rgba(0,0,0,0.65); align-items:center;
+            justify-content:center; padding:20px;">
+
+  <div style="background:white; color:#222; width:100%; max-width:550px;
+              padding:25px; border-radius:10px; box-sizing:border-box;">
+
+    <h2 style="margin-top:0;">📢 Comunicazione della sede centrale</h2>
+
+    <div id="testoAvvisoOperatore"
+         style="white-space:pre-wrap; overflow-wrap:anywhere;
+                margin:20px 0; line-height:1.6;">
+    </div>
+
+    <button type="button" onclick="confermaLetturaAvviso()"
+            style="padding:12px 20px; cursor:pointer;">
+      Conferma lettura
+    </button>
+
+  </div>
+</div>
+
 
 </body>
 </html>

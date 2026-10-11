@@ -43,6 +43,17 @@ export default function Sorveglianza() {
   // --- Modal e dati PDF ---
   const [showPdfForm, setShowPdfForm] = useState(false);
 
+  
+  const [showComunicazione, setShowComunicazione] = useState(false);
+  const [invioComunicazione, setInvioComunicazione] = useState(false);
+
+  const [targaComunicazione, setTargaComunicazione] = useState("");
+  const [distrettoComunicazione, setDistrettoComunicazione] = useState("");
+  const [compartoComunicazione, setCompartoComunicazione] = useState("");
+  const [dataInizioComunicazione, setDataInizioComunicazione] = useState("");
+  const [dataFineComunicazione, setDataFineComunicazione] = useState("");
+  const [motivazioneComunicazione, setMotivazioneComunicazione] = useState("");
+
   const [pdfFormData, setPdfFormData] = useState({
     veicolo: "",
     targa: "",
@@ -151,6 +162,21 @@ export default function Sorveglianza() {
       }));
     }
   }, []);
+
+  
+  const apriComunicazione = () => {
+    const savedTarga = localStorage.getItem("ultimaTarga") || targa;
+
+    setTargaComunicazione(savedTarga.toUpperCase());
+    setDistrettoComunicazione(distretto);
+    setCompartoComunicazione(
+      comparto || localStorage.getItem("ultimoComparto") || ""
+    );
+    setDataInizioComunicazione("");
+    setDataFineComunicazione("");
+    setMotivazioneComunicazione("");
+    setShowComunicazione(true);
+  };
 
   const handlePdfFormChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -317,6 +343,62 @@ export default function Sorveglianza() {
     );
 
     return pdfFile;
+  };
+
+  
+  const inviaComunicazione = async () => {
+    if (!targaComunicazione.trim()) {
+      alert("Inserisci la targa del veicolo.");
+      return;
+    }
+
+    if (!distrettoComunicazione) {
+      alert("Seleziona il distretto.");
+      return;
+    }
+
+    if (!compartoComunicazione.trim()) {
+      alert("Inserisci il comparto.");
+      return;
+    }
+
+    if (!dataInizioComunicazione || !dataFineComunicazione) {
+      alert("Inserisci la data iniziale e la data finale.");
+      return;
+    }
+
+    if (dataFineComunicazione < dataInizioComunicazione) {
+      alert("La data finale non può precedere quella iniziale.");
+      return;
+    }
+
+    if (!motivazioneComunicazione.trim()) {
+      alert("Inserisci la motivazione della comunicazione.");
+      return;
+    }
+
+    setInvioComunicazione(true);
+
+    try {
+      await addDoc(collection(db, "comunicazioni_mancato_servizio"), {
+        targa: targaComunicazione.trim().toUpperCase(),
+        distretto: distrettoComunicazione,
+        comparto: compartoComunicazione.trim().toUpperCase(),
+        dataInizio: dataInizioComunicazione,
+        dataFine: dataFineComunicazione,
+        motivazione: motivazioneComunicazione.trim(),
+        stato: "attiva",
+        createdAt: Timestamp.now(),
+      });
+
+      alert("Comunicazione di mancato servizio inviata correttamente.");
+      setShowComunicazione(false);
+    } catch (err) {
+      console.error("Errore invio comunicazione:", err);
+      alert("Errore durante il salvataggio della comunicazione.");
+    } finally {
+      setInvioComunicazione(false);
+    }
   };
 
   const handleSend = async () => {
@@ -530,13 +612,24 @@ export default function Sorveglianza() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setShowPdfForm(true)}
-              className="inline-flex min-h-[48px] w-full items-center justify-center bg-[#0066cc] px-5 py-3 text-base font-bold text-white transition hover:bg-[#004f9e] focus:outline-none focus:ring-4 focus:ring-[#0066cc]/30 sm:w-auto"
-            >
-              Compila report PDF
-            </button>
+            
+<div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+  <button
+    type="button"
+    onClick={() => setShowPdfForm(true)}
+    className="inline-flex min-h-[48px] w-full items-center justify-center bg-[#0066cc] px-5 py-3 text-base font-bold text-white transition hover:bg-[#004f9e] focus:outline-none focus:ring-4 focus:ring-[#0066cc]/30 sm:w-auto"
+  >
+    Compila report PDF
+  </button>
+
+  <button
+    type="button"
+    onClick={apriComunicazione}
+    className="inline-flex min-h-[48px] w-full items-center justify-center bg-[#b45309] px-5 py-3 text-base font-bold text-white transition hover:bg-[#92400e] focus:outline-none focus:ring-4 focus:ring-[#b45309]/30 sm:w-auto"
+  >
+    Comunica mancato servizio
+  </button>
+</div>
 
             {receiptUrl && (
               <div className="mt-5 border border-[#b7d8c0] bg-[#eef8f1] p-4">
@@ -1212,6 +1305,158 @@ export default function Sorveglianza() {
                 Salva
               </button>
 
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      
+      {showComunicazione && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#17324d]/75 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="comunicazione-title"
+        >
+          <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden border border-[#c7d2dc] bg-white shadow-2xl">
+
+            <div className="flex items-start justify-between gap-4 border-b border-[#d9e1e8] bg-[#f5f6f7] px-5 py-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#b45309]">
+                  Comunicazione di servizio
+                </p>
+                <h2 id="comunicazione-title" className="mt-1 text-xl font-bold text-[#17324d]">
+                  Comunica mancato servizio
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowComunicazione(false)}
+                aria-label="Chiudi finestra"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center border border-[#8a9bab] bg-white text-xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-5 overflow-y-auto p-5">
+
+              <div>
+                <label htmlFor="com-targa" className="mb-2 block text-sm font-bold">
+                  Targa del veicolo
+                </label>
+                <input
+                  id="com-targa"
+                  value={targaComunicazione}
+                  onChange={(e) => setTargaComunicazione(e.target.value.toUpperCase())}
+                  required
+                  className="min-h-[48px] w-full border border-[#8a9bab] bg-white px-3 py-3 uppercase"
+                  placeholder="Targa"
+                />
+                <p className="mt-1 text-xs text-[#5c6f82]">
+                  Proposta automaticamente dalla targa memorizzata; verificare prima dell'invio.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="com-distretto" className="mb-2 block text-sm font-bold">
+                  Distretto
+                </label>
+                <select
+                  id="com-distretto"
+                  value={distrettoComunicazione}
+                  onChange={(e) => setDistrettoComunicazione(e.target.value)}
+                  required
+                  className="min-h-[48px] w-full border border-[#8a9bab] bg-white px-3 py-3"
+                >
+                  <option value="">Seleziona il distretto</option>
+                  {DISTRETTI.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="com-comparto" className="mb-2 block text-sm font-bold">
+                  Comparto
+                </label>
+                <input
+                  id="com-comparto"
+                  value={compartoComunicazione}
+                  onChange={(e) => setCompartoComunicazione(e.target.value.toUpperCase())}
+                  required
+                  className="min-h-[48px] w-full border border-[#8a9bab] bg-white px-3 py-3 uppercase"
+                  placeholder="Es. FORESTAZIONE"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="com-data-inizio" className="mb-2 block text-sm font-bold">
+                    Data iniziale
+                  </label>
+                  <input
+                    id="com-data-inizio"
+                    type="date"
+                    value={dataInizioComunicazione}
+                    onChange={(e) => setDataInizioComunicazione(e.target.value)}
+                    required
+                    className="min-h-[48px] w-full border border-[#8a9bab] bg-white px-3 py-3"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="com-data-fine" className="mb-2 block text-sm font-bold">
+                    Data finale
+                  </label>
+                  <input
+                    id="com-data-fine"
+                    type="date"
+                    min={dataInizioComunicazione || undefined}
+                    value={dataFineComunicazione}
+                    onChange={(e) => setDataFineComunicazione(e.target.value)}
+                    required
+                    className="min-h-[48px] w-full border border-[#8a9bab] bg-white px-3 py-3"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="com-motivazione" className="mb-2 block text-sm font-bold">
+                  Motivazione
+                </label>
+                <textarea
+                  id="com-motivazione"
+                  value={motivazioneComunicazione}
+                  onChange={(e) => setMotivazioneComunicazione(e.target.value)}
+                  required
+                  rows={3}
+                  className="w-full border border-[#8a9bab] bg-white px-3 py-3"
+                  placeholder="Indica il motivo del mancato servizio"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-[#d9e1e8] bg-[#f5f6f7] p-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setShowComunicazione(false)}
+                disabled={invioComunicazione}
+                className="min-h-[48px] border border-[#6c7a88] bg-white px-5 py-3 font-bold text-[#17324d]"
+              >
+                Annulla
+              </button>
+
+              <button
+                type="button"
+                onClick={inviaComunicazione}
+                disabled={invioComunicazione}
+                className="min-h-[48px] bg-[#b45309] px-5 py-3 font-bold text-white disabled:opacity-60"
+              >
+                {invioComunicazione ? "Invio in corso..." : "Invia comunicazione"}
+              </button>
             </div>
 
           </div>
