@@ -228,6 +228,28 @@ export default function Home() {
                 <span>Dashboard</span>
               </button>
             </a>
+             {/* MPPA MEZZI */}
+            <a
+              href="/mappa-mezzi.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                textDecoration: "none",
+              }}
+            >
+              <button
+                style={btn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#004f9e";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#0066cc";
+                }}
+              >
+                📊
+                <span>MAPPA MEZZI</span>
+              </button>
+            </a>
           </div>
         </div>
       </section>

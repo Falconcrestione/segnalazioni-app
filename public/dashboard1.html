@@ -189,8 +189,29 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
 const markersReport = L.markerClusterGroup();
 const markersRichieste = L.markerClusterGroup();
+let posizioneScelta = null;
+let markerTemporaneo = null;
+let attesaPosizione = false;
 map.addLayer(markersReport);
 map.addLayer(markersRichieste);
+
+map.on("click", function(e) {
+  if (!attesaPosizione) return;
+
+  posizioneScelta = {
+    lat: e.latlng.lat,
+    lon: e.latlng.lng
+  };
+
+  if (markerTemporaneo) map.removeLayer(markerTemporaneo);
+
+  markerTemporaneo = L.marker(e.latlng).addTo(map)
+    .bindPopup("Posizione scelta").openPopup();
+
+  attesaPosizione = false;
+  alert("Posizione scelta. Premi nuovamente Assegna.");
+});
+
 
 /* ===== LEGENDA ===== */
 const legend = L.control({ position: "topright" });
@@ -396,14 +417,18 @@ if(active !== "ALL" && r.distretto != active) return;
       `;
 
       if(r.status === "approvata" && r.latitudine && r.longitudine) {
-        const marker = L.marker([r.latitudine,r.longitudine],{
-          icon:L.icon({
-            iconUrl:'https://cdn-icons-png.flaticon.com/512/190/190411.png',
-            iconSize:[25,41],
-            iconAnchor:[12,41],
-            popupAnchor:[0,-41]
-          })
-        });
+        
+
+const marker = L.marker([r.latitudine, r.longitudine], {
+  icon: L.icon({
+    iconUrl: '/ruspa.jpg',
+    iconSize: [45, 45],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -22]
+  })
+});
+
+
       marker.bindPopup(`
   <b>📍 Mezzo assegnato</b><br>
   🚜 Mezzo: ${r.tipoMezzo || "-"}<br>
@@ -428,14 +453,18 @@ async function assegnaVeicolo(richiestaId, emailDestinatario){
  const [veicoloId, targa, tipoMezzo] = sel.value.split("|");
 
   try {
-    // 🌍 GEOCODING (OpenStreetMap)
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(comune)}`);
-    const data = await res.json();
+   
+   
+if (!posizioneScelta) {
+  attesaPosizione = true;
+  alert("Ora clicca sulla mappa nel punto esatto del mezzo.");
+  return;
+}
 
-    if(!data.length) return alert("Comune non trovato");
+const lat = posizioneScelta.lat;
+const lon = posizioneScelta.lon;
 
-    const lat = parseFloat(data[0].lat);
-    const lon = parseFloat(data[0].lon);
+
 
     // 🔥 SALVATAGGIO FIREBASE
     await db.collection('richiestemezzi').doc(richiestaId).update({
@@ -450,6 +479,7 @@ async function assegnaVeicolo(richiestaId, emailDestinatario){
     });
 
     await db.collection('mezziMeccanici').doc(veicoloId).update({ stato:'occupato' });
+    posizioneScelta = null;
 
     inviaMail(emailDestinatario, targa);
     reloadAll();

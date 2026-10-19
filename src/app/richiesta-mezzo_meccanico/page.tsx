@@ -73,16 +73,16 @@ if (distretto === "sede_centrale") {
 
   /* 📤 INVIO */
   const send = async () => {
-    if (
-      !nome ||
-      !email ||
-      !sitoIntervento ||
-      !dataMissione ||
-      !durataPresunta ||
-      !distretto
-    ) {
-      return alert("Compila tutti i campi");
-    }
+   // if (
+     // !nome ||
+      //!email ||
+      //!sitoIntervento ||
+      //!dataMissione ||
+      //!durataPresunta ||
+      //!distretto
+    //) {
+      //return alert("Compila tutti i campi");
+    //}
 
     if (!mezzoId) return alert("Seleziona un mezzo meccanico");
     if (!navigator.geolocation)
@@ -113,8 +113,12 @@ if (distretto === "sede_centrale") {
           nome,
           email,
           sitoIntervento,
-          dataMissione: Timestamp.fromDate(new Date(dataMissione)),
-          durataPresunta: Number(durataPresunta),
+         dataMissione: dataMissione
+  ? Timestamp.fromDate(new Date(dataMissione))
+  : null,
+durataPresunta: durataPresunta
+  ? Number(durataPresunta)
+  : null,
        distretto: valoreDistretto,
           mezzoId: mezzo.id,
           identificativo: mezzo.identificativo,
@@ -238,4 +242,5 @@ if (distretto === "sede_centrale") {
     </div>
   );
 }
+
 

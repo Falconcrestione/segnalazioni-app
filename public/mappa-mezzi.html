@@ -1,0 +1,551 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calabria Verde - Mappa Mezzi</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #eef2f5;
+  color: #18312a;
+}
+
+header {
+  position: absolute;
+  z-index: 1000;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 15px 20px;
+  background: rgba(255,255,255,.96);
+  border: 1px solid #dce5e0;
+  border-radius: 14px;
+  box-shadow: 0 5px 22px #142b2420;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 45px;
+  height: 45px;
+  display: grid;
+  place-items: center;
+  background: #e0f2e7;
+  border-radius: 12px;
+  font-size: 27px;
+}
+
+h1 {
+  font-size: 18px;
+  margin: 0 0 5px;
+}
+
+.subtitle {
+  color: #64756e;
+  font-size: 12px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+select, button {
+  border: 1px solid #d4ded8;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: white;
+  font-size: 13px;
+}
+
+button {
+  background: #176b45;
+  color: white;
+  border: 0;
+  cursor: pointer;
+}
+
+button:hover { background: #105536; }
+
+#map {
+  width: 100%;
+  height: 100vh;
+  background: #e7ece8;
+}
+
+.panel {
+  position: absolute;
+  z-index: 900;
+  bottom: 25px;
+  left: 16px;
+  width: 230px;
+  padding: 16px;
+  background: rgba(255,255,255,.97);
+  border: 1px solid #dce5e0;
+  border-radius: 13px;
+  box-shadow: 0 5px 22px #142b2420;
+}
+
+.panel h3 {
+  margin: 0 0 13px;
+  font-size: 14px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #2676d2;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #2676d2;
+}
+
+.ruspa-legend {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.click-legend {
+  width: 14px;
+  height: 14px;
+  background: #e34b45;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #e34b45;
+}
+
+.status {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid #e5ebe7;
+  font-size: 12px;
+  color: #52665b;
+  line-height: 1.6;
+}
+
+#coordinateBox {
+  position: absolute;
+  z-index: 900;
+  bottom: 25px;
+  right: 16px;
+  max-width: 300px;
+  padding: 13px 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 22px #142b2420;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  header { top: 8px; left: 8px; right: 8px; padding: 12px; }
+  h1 { font-size: 15px; }
+  .subtitle { font-size: 11px; }
+  .panel { left: 8px; bottom: 12px; width: 190px; padding: 12px; }
+  #coordinateBox { right: 8px; bottom: 12px; max-width: 48%; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">🚜</div>
+    <div>
+      <h1>Calabria Verde</h1>
+      <div class="subtitle">Mappa operativa dei mezzi meccanici</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <select id="distrettoSelector">
+      <option value="ALL">🌍 Tutti i distretti</option>
+      <option value="1">Distretto 1</option>
+      <option value="2">Distretto 2</option>
+      <option value="3">Distretto 3</option>
+      <option value="4">Distretto 4</option>
+      <option value="5">Distretto 5</option>
+      <option value="6">Distretto 6</option>
+      <option value="7">Distretto 7</option>
+      <option value="8">Distretto 8</option>
+      <option value="9">Distretto 9</option>
+      <option value="10">Distretto 10</option>
+      <option value="11">Distretto 11</option>
+    </select>
+    <button onclick="centraCalabria()">Vista Calabria</button>
+  </div>
+</header>
+
+<div id="filtro-mezzi" style="
+  position:absolute;
+  top:80px;
+  right:15px;
+  z-index:1000;
+  background:white;
+  padding:12px;
+  border-radius:10px;
+  box-shadow:0 2px 10px #0003;
+">
+  <label for="filtroStatoMezzi"><strong>Gestione mezzi</strong></label>
+  <select id="filtroStatoMezzi" style="
+    display:block;
+    margin-top:8px;
+    padding:9px;
+    border-radius:6px;
+    border:1px solid #ccc;
+    min-width:180px;
+  ">
+    <option value="tutti">Tutti i mezzi</option>
+    <option value="assegnati">Mezzi assegnati</option>
+    <option value="liberi">Mezzi liberi</option>
+  </select>
+</div>
+<div id="elencoMezzi" style="
+  position:absolute;
+  top:175px;
+  right:15px;
+  z-index:1000;
+  background:white;
+  padding:12px;
+  border-radius:10px;
+  box-shadow:0 2px 10px #0003;
+  width:260px;
+  max-height:300px;
+  overflow-y:auto;
+">
+  <strong>Elenco mezzi</strong>
+  <div id="listaMezzi" style="margin-top:10px;font-size:13px;">
+    Caricamento...
+  </div>
+</div>
+
+
+<div id="map"></div>
+
+<div class="panel">
+  <h3>Legenda mappa</h3>
+
+  <div class="legend-item">
+    <span class="dot"></span>
+    <span>Report mezzi</span>
+  </div>
+
+  <div class="legend-item">
+    <img class="ruspa-legend" src="./ruspa.jpg" alt="Ruspa"
+         onerror="this.style.display='none'">
+    <span>Mezzo assegnato</span>
+  </div>
+
+  <div class="legend-item">
+    <span class="click-legend"></span>
+    <span>Punto selezionato</span>
+  </div>
+
+  <div class="status">
+    <div>Report visibili: <b id="numReport">0</b></div>
+    <div>Mezzi assegnati: <b id="numMezzi">0</b></div>
+    <div id="statoConnessione">Caricamento dati...</div>
+  </div>
+</div>
+
+<div id="coordinateBox">
+  <b>Selezione sulla mappa</b>
+  <div>Clicca un punto per leggerne le coordinate.</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCdYoHrYI9zQdxhQOdaVT7o1lIQg8SRwAg",
+  authDomain: "attendance-2980e.firebaseapp.com",
+  projectId: "attendance-2980e",
+  storageBucket: "attendance-2980e.appspot.com"
+});
+
+const db = firebase.firestore();
+
+const map = L.map("map", {
+  zoomControl: false
+}).setView([38.1, 15.6], 9);
+
+L.control.zoom({ position: "bottomright" }).addTo(map);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: '&copy; OpenStreetMap contributors',
+  maxZoom: 19
+}).addTo(map);
+
+const gruppoReport = L.markerClusterGroup();
+const gruppoMezzi = L.markerClusterGroup();
+
+map.addLayer(gruppoReport);
+map.addLayer(gruppoMezzi);
+
+let reports = [];
+let richieste = [];
+let mezziMeccanici = [];
+let markerSelezione = null;
+
+const iconaRuspa = L.icon({
+  iconUrl: "./ruspa.jpg",
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+  popupAnchor: [0, -22]
+});
+
+function centraCalabria() {
+  map.setView([38.1, 15.6], 9);
+}
+
+function distrettoCorrente() {
+  return document.getElementById("distrettoSelector").value;
+}
+
+function coordinateValide(d) {
+  return d.latitudine != null &&
+         d.longitudine != null &&
+         Number.isFinite(Number(d.latitudine)) &&
+         Number.isFinite(Number(d.longitudine));
+}
+
+function renderMappa() {
+  gruppoReport.clearLayers();
+  gruppoMezzi.clearLayers();
+
+  const distretto = distrettoCorrente();
+  const filtroStato = document.getElementById("filtroStatoMezzi").value;
+
+  let nReport = 0;
+  let nMezzi = 0;
+
+  // Report dei mezzi: manteniamo il comportamento attuale
+  reports.forEach(d => {
+    if (distretto !== "ALL" &&
+        String(d.distretto) !== distretto) return;
+
+    if (!coordinateValide(d)) return;
+
+    const marker = L.marker([
+      Number(d.latitudine),
+      Number(d.longitudine)
+    ]);
+
+    marker.bindPopup(`
+      <b>📄 Report mezzo</b><br>
+      <b>Identificativo:</b> ${d.identificativo || "-"}<br>
+      <b>Tipo:</b> ${d.tipoMezzo || "-"}<br>
+      <b>Distretto:</b> ${d.distretto ?? "-"}<br>
+      <b>Comune:</b> ${d.comune || "-"}<br>
+      <b>Sito:</b> ${d.sitoIntervento || "-"}
+    `);
+
+    gruppoReport.addLayer(marker);
+    nReport++;
+  });
+
+  // Identifichiamo i mezzi con una richiesta approvata
+  const mezziAssegnati = new Set();
+
+  richieste.forEach(r => {
+    if (r.status !== "approvata") return;
+
+    if (r.veicoloId) mezziAssegnati.add(String(r.veicoloId));
+    if (r.mezzoId) mezziAssegnati.add(String(r.mezzoId));
+    if (r.identificativo) mezziAssegnati.add(String(r.identificativo));
+    if (r.veicoloTarga) mezziAssegnati.add(String(r.veicoloTarga));
+  });
+
+  // Visualizziamo le richieste approvate sulla mappa
+  richieste.forEach(r => {
+    if (r.status !== "approvata") return;
+
+    if (distretto !== "ALL" &&
+        String(r.distretto) !== distretto) return;
+
+    if (!coordinateValide(r)) return;
+
+    // Il filtro libero/assegnato si applica ai marker dei mezzi.
+    // Le richieste approvate rappresentano mezzi assegnati.
+    if (filtroStato === "liberi") return;
+
+    const marker = L.marker([
+      Number(r.latitudine),
+      Number(r.longitudine)
+    ], { icon: iconaRuspa });
+
+    
+marker.bindPopup(`
+  <b>🚜 Mezzo assegnato</b><br>
+  <b>Tipo:</b> ${r.tipoMezzo || "-"}<br>
+  <b>Identificativo:</b> ${r.identificativo || r.veicoloTarga || "-"}<br>
+  <b>Targa:</b> ${r.veicoloTarga || "-"}<br>
+  <b>Comune:</b> ${r.comune || "-"}<br>
+  <b>Distretto:</b> ${r.distretto ?? "-"}<br>
+  <b>Stato:</b> ${r.status}<br>
+  ${
+    r.pdf
+      ? `<a href="${r.pdf}" target="_blank" rel="noopener noreferrer">
+           📄 Apri PDF della richiesta
+         </a>`
+      : `<span>📄 PDF non disponibile</span>`
+  }
+`);
+
+    gruppoMezzi.addLayer(marker);
+    nMezzi++;
+  });
+
+  const mezziFiltrati = mezziMeccanici.filter(m => {
+  if (distretto !== "ALL" &&
+      String(m.distretto) !== distretto) return false;
+
+  const assegnato =
+    String(m.stato || "").toLowerCase() === "occupato";
+
+  if (filtroStato === "assegnati") return assegnato;
+  if (filtroStato === "liberi") return !assegnato;
+
+  return true;
+});
+
+document.getElementById("listaMezzi").innerHTML =
+  mezziFiltrati.length
+    ? mezziFiltrati.map(m => `
+        <div style="padding:8px 0;border-bottom:1px solid #eee;">
+          <b>${m.tipoMezzo || "Mezzo senza descrizione"}</b><br>
+          <span>${m.identificativo || m.id}</span><br>
+          <span style="color:${
+            String(m.stato || "").toLowerCase() === "occupato"
+              ? "#b45309" : "#16803c"
+          }">
+            ${String(m.stato || "").toLowerCase() === "occupato"
+              ? "Assegnato / occupato" : "Libero"}
+          </span>
+        </div>
+      `).join("")
+    : "<p>Nessun mezzo trovato.</p>";
+
+
+  // Aggiorniamo i contatori
+  document.getElementById("numReport").textContent = nReport;
+  document.getElementById("numMezzi").textContent = nMezzi;
+}
+
+
+document.getElementById("distrettoSelector")
+  .addEventListener("change", renderMappa);
+  document.getElementById("filtroStatoMezzi")
+  .addEventListener("change", renderMappa);
+
+// Il clic mostra un punto temporaneo e le sue coordinate.
+// Non salva nulla su Firebase.
+map.on("click", function(e) {
+  const lat = e.latlng.lat;
+  const lon = e.latlng.lng;
+
+  if (markerSelezione) {
+    map.removeLayer(markerSelezione);
+  }
+
+  markerSelezione = L.circleMarker(e.latlng, {
+    radius: 8,
+    color: "#ffffff",
+    weight: 3,
+    fillColor: "#e34b45",
+    fillOpacity: 1
+  }).addTo(map);
+
+  markerSelezione.bindPopup(
+    "<b>Punto selezionato</b><br>" +
+    "Latitudine: " + lat.toFixed(6) + "<br>" +
+    "Longitudine: " + lon.toFixed(6)
+  ).openPopup();
+
+  document.getElementById("coordinateBox").innerHTML =
+    "<b>Punto selezionato</b><br>" +
+    "Latitudine: " + lat.toFixed(6) + "<br>" +
+    "Longitudine: " + lon.toFixed(6);
+});
+
+db.collection("reportmezzi").onSnapshot(snap => {
+  reports = snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+
+  renderMappa();
+  document.getElementById("statoConnessione").textContent =
+    "Dati aggiornati";
+}, err => {
+  console.error(err);
+  document.getElementById("statoConnessione").textContent =
+    "Errore caricamento report";
+});
+
+db.collection("richiestemezzi").onSnapshot(snap => {
+  richieste = snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+
+  renderMappa();
+  document.getElementById("statoConnessione").textContent =
+    "Dati aggiornati";
+}, err => {
+  console.error(err);
+  document.getElementById("statoConnessione").textContent =
+    "Errore caricamento mezzi";
+});
+db.collection("mezziMeccanici").onSnapshot(snap => {
+  mezziMeccanici = snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+
+  renderMappa();
+  document.getElementById("statoConnessione").textContent =
+    "Dati aggiornati";
+}, err => {
+  console.error(err);
+  document.getElementById("statoConnessione").textContent =
+    "Errore caricamento anagrafica mezzi";
+});
+</script>
+
+</body>
+</html>
