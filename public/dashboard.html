@@ -679,8 +679,9 @@ tbody tr:not([style]):hover td {
 <table>
 <thead>
 <tr>
-  <th>Modello</th>
+    <th>Modello</th>
   <th>Targa</th>
+  <th>Sostitutivo</th>
   <th>Carta Q8</th>
   <th>Data</th>
   <th>Conducente</th>
@@ -1309,10 +1310,37 @@ function verificaTargheReportsVsVeicoli() {
 
   const active = distrettoAttivo();
 
-  Promise.all([
-    db.collection("reports").get(),
-    db.collection("veicoli").get()
-  ]).then(([reportsSnap, veicoliSnap]) => {
+ Promise.all([
+  db.collection("reports").get(),
+  db.collection("veicoli").get(),
+  db.collection("sostituzioni_veicoli").get()
+]).then(([reportsSnap, veicoliSnap, sostituzioniSnap]) => {
+
+const targheSostitutive = new Set();
+
+sostituzioniSnap.forEach(doc => {
+  const s = doc.data();
+
+  if (String(s.stato || "").toUpperCase() !== "ATTIVA") return;
+
+  const targa = normalizzaTarga(s.targaSostituto);
+  const distretto = normalizzaDistretto(
+    s.distrettoSostituto ?? s.distretto
+  );
+
+  if (!targa || !distretto) return;
+
+  if (s.dataInizio?.toDate && s.dataInizio.toDate() > new Date()) return;
+
+  if (s.dataFine?.toDate && s.dataFine.toDate() < new Date()) return;
+
+  if (
+    active !== "ALL" &&
+    distretto !== normalizzaDistretto(active)
+  ) return;
+
+  targheSostitutive.add(`${distretto}|${targa}`);
+});
 
     const veicoliPerDistretto = {};
 
@@ -1349,9 +1377,16 @@ function verificaTargheReportsVsVeicoli() {
         return;
       }
 
-      const presenti = veicoliPerDistretto[distretto];
+     const presenti = veicoliPerDistretto[distretto];
 
-      if (!presenti || !presenti.has(targa)) {
+const eTargaSostitutiva = targheSostitutive.has(
+  `${distretto}|${targa}`
+);
+
+if (
+  (!presenti || !presenti.has(targa)) &&
+  !eTargaSostitutiva
+) {
 
         let importo = 0;
 
@@ -1747,9 +1782,48 @@ if (
     r.createdAt.toDate().toLocaleDateString("it-IT");
 }
 
+let targaEffettiva = r.targa || v.targa;
+let veicoloSostitutivo = false;
+
+sostituzioniQ8.forEach(s => {
+  const targaSostituto = normalizzaTarga(
+    String(s.targaSostituto || "").split(" - ")[0]
+  );
+
+  const targaGuasto = normalizzaTarga(s.targaGuasto);
+
+  let dataReport = null;
+  if (r.createdAt && typeof r.createdAt.toDate === "function") {
+    dataReport = r.createdAt.toDate();
+  }
+
+  let dataInizio = null;
+  if (s.dataInizio && typeof s.dataInizio.toDate === "function") {
+    dataInizio = s.dataInizio.toDate();
+  }
+
+  let dataFine = null;
+  if (s.dataFine && typeof s.dataFine.toDate === "function") {
+    dataFine = s.dataFine.toDate();
+  }
+
+  if (
+    normalizzaTarga(r.targa) === targaSostituto &&
+    targaGuasto === normalizzaTarga(v.targa) &&
+    dataReport &&
+    dataInizio &&
+    dataReport >= dataInizio &&
+    (!dataFine || dataReport <= dataFine)
+  ) {
+    targaEffettiva = r.targa;
+    veicoloSostitutivo = true;
+  }
+});
+
 righeDettaglio.push({
   modello: v.modello,
-  targa: v.targa,
+  targa: targaEffettiva,
+  veicoloSostitutivo: veicoloSostitutivo,
   cartaQ8: v.cartaQ8,
   data: dataReportDettaglio,
   conducente: r.conducente || "—",
@@ -1838,10 +1912,15 @@ else {
 
 righeDettaglio.forEach(riga => {
 
-  htmlQ8 += `
+ htmlQ8 += `
     <tr>
       <td>${riga.modello}</td>
       <td>${riga.targa}</td>
+      <td style="text-align:center;">
+  ${riga.veicoloSostitutivo
+    ? '<span style="color:red; font-size:22px; font-weight:bold;">☑</span>'
+    : '<span style="color:#999; font-size:22px;">☐</span>'}
+</td>
       <td>${riga.cartaQ8}</td>
       <td>${riga.data}</td>
       <td>${riga.conducente}</td>
@@ -2275,9 +2354,14 @@ async function exportContabilitaQ8Excel() {
 
         /* ================= REPORT NON ASSOCIATO ================= */
 
-        if (!reportAssociato) {
-          return;
-        }
+        /* ================= REPORT NON ASSOCIATO ================= */
+
+if (!reportAssociato) {
+  return;
+}
+
+const veicoloSostitutivo = targaReport !== targaVeicolo;
+const targaEffettiva = veicoloSostitutivo ? r.targa : v.targa;
         let dataReportDettaglio = "";
 
 if (
@@ -2379,14 +2463,17 @@ if (
 
 datiExcel.push({
 
-  "Modello":
-    v.modello,
+ "Modello":
+  v.modello,
 
-  "Targa":
-    v.targa,
+"Targa":
+  targaEffettiva,
 
-  "Carta Q8":
-    v.cartaQ8,
+"Sostitutivo":
+  veicoloSostitutivo ? "☑ SÌ" : "☐ NO",
+
+"Carta Q8":
+  v.cartaQ8,
 
   "Data":
     dataReportDettaglio,
@@ -2441,12 +2528,14 @@ datiExcel.push({
 
       "Modello":
         "TOTALE GENERALE",
+"Targa":
+  "",
 
-      "Targa":
-        "",
+"Sostitutivo":
+  "",
 
-      "Carta Q8":
-        "",
+"Carta Q8":
+  "",
        
         "Data":
          "",
@@ -2494,19 +2583,23 @@ datiExcel.push({
 
     ws["!cols"] = [
 
-      { wch: 25 }, // Modello
-      { wch: 15 }, // Targa
-      { wch: 18 }, // Carta Q8
-      {wch: 18},   // Data
-      { wch: 25 }, // Conducente
-      { wch: 15 }, // KM Partenza
-      { wch: 15 }, // KM Arrivo
-      { wch: 18 }, // N. Rifornimenti
-      { wch: 18},//Distretto
-      { wch: 18 }, // Litri Totali
-      { wch: 18 }  // Totale €
+  { wch: 25 }, // Modello
+  { wch: 15 }, // Targa
+  { wch: 16 }, // Sostitutivo
+  { wch: 18 }, // Carta Q8
+  { wch: 18 }, // Data
+  { wch: 25 }, // Conducente
+  { wch: 18 }, // Comparto
+  { wch: 15 }, // KM Partenza
+  { wch: 15 }, // KM Arrivo
+  { wch: 18 }, // KM Giornalieri
+  { wch: 22 }, // Rifornimento a KM
+  { wch: 18 }, // N. Rifornimenti
+  { wch: 15 }, // Distretto
+  { wch: 15 }, // Litri Totali
+  { wch: 15 }  // Totale €
 
-    ];
+];
 
     /* ================= NOME FILE ================= */
 
