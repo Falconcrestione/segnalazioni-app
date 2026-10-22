@@ -1821,10 +1821,21 @@ sostituzioniQ8.forEach(s => {
 });
 
 righeDettaglio.push({
-  modello: v.modello,
+  modello: veicoloSostitutivo
+    ? (veicoli.find(x =>
+        normalizzaTarga(x.targa) === normalizzaTarga(targaEffettiva)
+      )?.modello || v.modello)
+    : v.modello,
+
   targa: targaEffettiva,
+
   veicoloSostitutivo: veicoloSostitutivo,
-  cartaQ8: v.cartaQ8,
+
+  cartaQ8: veicoloSostitutivo
+    ? (veicoli.find(x =>
+        normalizzaTarga(x.targa) === normalizzaTarga(targaEffettiva)
+      )?.cartaQ8 || "—")
+    : v.cartaQ8,
   data: dataReportDettaglio,
   conducente: r.conducente || "—",
   comparto: r.comparto || "—",

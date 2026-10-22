@@ -179,6 +179,81 @@ button:hover { background: #105536; }
 
 <body>
 
+  
+<div id="schermataPassword" style="
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  background:#163b2b;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-family:Arial,sans-serif;
+">
+  <div style="
+    background:white;
+    padding:30px;
+    border-radius:12px;
+    width:320px;
+    max-width:85%;
+    text-align:center;
+    box-shadow:0 5px 25px #0005;
+  ">
+    <h2 style="color:#163b2b;">Calabria Verde</h2>
+    <p>Inserisci la password per accedere</p>
+
+    <input
+      type="password"
+      id="passwordPagina"
+      placeholder="Password"
+      style="
+        width:100%;
+        box-sizing:border-box;
+        padding:12px;
+        margin:10px 0;
+        border:1px solid #ccc;
+        border-radius:6px;
+      "
+      onkeydown="if(event.key==='Enter') verificaPasswordPagina()"
+    >
+
+    <button
+      onclick="verificaPasswordPagina()"
+      style="
+        width:100%;
+        padding:12px;
+        background:#198754;
+        color:white;
+        border:none;
+        border-radius:6px;
+        cursor:pointer;
+        font-weight:bold;
+      "
+    >
+      Accedi
+    </button>
+
+    <p id="errorePassword" style="color:red;display:none;">
+      Password errata. Riprova.
+    </p>
+  </div>
+</div>
+
+<script>
+function verificaPasswordPagina() {
+  const password = document.getElementById("passwordPagina").value;
+
+  if (password === "dg2026") {
+    document.getElementById("schermataPassword").style.display = "none";
+  } else {
+    document.getElementById("errorePassword").style.display = "block";
+    document.getElementById("passwordPagina").value = "";
+    document.getElementById("passwordPagina").focus();
+  }
+}
+</script>
+
+
 <header>
   <div class="brand">
     <div class="logo">🚜</div>
@@ -227,8 +302,9 @@ button:hover { background: #105536; }
     min-width:180px;
   ">
     <option value="tutti">Tutti i mezzi</option>
-    <option value="assegnati">Mezzi assegnati</option>
-    <option value="liberi">Mezzi liberi</option>
+<option value="assegnati">Mezzi assegnati</option>
+<option value="liberi">Mezzi liberi</option>
+<option value="manutenzione">Mezzi in manutenzione</option>
   </select>
 </div>
 <div id="elencoMezzi" style="
@@ -430,18 +506,24 @@ marker.bindPopup(`
     nMezzi++;
   });
 
-  const mezziFiltrati = mezziMeccanici.filter(m => {
+ 
+const mezziFiltrati = mezziMeccanici.filter(m => {
   if (distretto !== "ALL" &&
       String(m.distretto) !== distretto) return false;
 
-  const assegnato =
-    String(m.stato || "").toLowerCase() === "occupato";
+  const stato = String(m.stato || "").toLowerCase();
+  const assegnato = stato === "occupato";
+  const manutenzione = stato === "manutenzione";
 
   if (filtroStato === "assegnati") return assegnato;
-  if (filtroStato === "liberi") return !assegnato;
+  if (filtroStato === "liberi") {
+    return !assegnato && !manutenzione;
+  }
+  if (filtroStato === "manutenzione") return manutenzione;
 
   return true;
 });
+
 
 document.getElementById("listaMezzi").innerHTML =
   mezziFiltrati.length
@@ -449,13 +531,23 @@ document.getElementById("listaMezzi").innerHTML =
         <div style="padding:8px 0;border-bottom:1px solid #eee;">
           <b>${m.tipoMezzo || "Mezzo senza descrizione"}</b><br>
           <span>${m.identificativo || m.id}</span><br>
-          <span style="color:${
-            String(m.stato || "").toLowerCase() === "occupato"
-              ? "#b45309" : "#16803c"
-          }">
-            ${String(m.stato || "").toLowerCase() === "occupato"
-              ? "Assegnato / occupato" : "Libero"}
-          </span>
+         
+<span style="color:${
+  String(m.stato || "").toLowerCase() === "manutenzione"
+    ? "#dc2626"
+    : String(m.stato || "").toLowerCase() === "occupato"
+      ? "#b45309"
+      : "#16803c"
+}">
+  ${
+    String(m.stato || "").toLowerCase() === "manutenzione"
+      ? "🔧 In manutenzione"
+      : String(m.stato || "").toLowerCase() === "occupato"
+        ? "Assegnato / occupato"
+        : "Libero"
+  }
+</span>
+
         </div>
       `).join("")
     : "<p>Nessun mezzo trovato.</p>";

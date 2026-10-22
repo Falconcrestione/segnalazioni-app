@@ -72,6 +72,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
   <th>Distretto</th>
   <th>Sito Intervento</th>
   <th>Tipo Mezzo</th>
+  <th>Azione</th>//aggiunta
   <th>Identificativo</th>
   <th>PDF</th>
   <th>Excel</th>
@@ -520,6 +521,7 @@ async function inviaMail(emailDestinatario,veicoloTarga){
 }
 
 /* ================= Mezzi Meccanici ================= */
+
 function loadMezzi() {
   if (!accessGranted) return;
 
@@ -531,23 +533,63 @@ function loadMezzi() {
     snap.forEach(doc => {
       const v = doc.data();
 
-     //f (typeof v.distretto !== "number") return;
-
       const active = distrettoAttivo();
-    if (active !== "ALL" && v.distretto != active) return;
+      if (active !== "ALL" && v.distretto != active) return;
+
+      let azione = "";
+
+      if (v.stato === "manutenzione") {
+        azione = `
+          <button
+            style="background:#198754;color:white;"
+            onclick="cambiaStatoManutenzione('${doc.id}', 'libero')">
+            Termina manutenzione
+          </button>`;
+      } else if (v.stato === "occupato") {
+        azione = "Mezzo occupato";
+      } else {
+        azione = `
+          <button
+            style="background:#ffc107;color:black;"
+            onclick="cambiaStatoManutenzione('${doc.id}', 'manutenzione')">
+            Metti in manutenzione
+          </button>`;
+      }
 
       veicoliBody.innerHTML += `
         <tr>
-          <td>${v.identificativo}</td>
-          <td>${v.stato}</td>
-          <td>${v.comparto}</td>
+          <td>${v.identificativo || "-"}</td>
+          <td>${v.stato || "-"}</td>
+          <td>${v.comparto || "-"}</td>
           <td>Distretto ${v.distretto}</td>
-          <td>${v.tipoMezzo}<td>
+          <td>${v.tipoMezzo || "-"}</td>
+          <td>${azione}</td>
         </tr>
       `;
     });
   });
 }
+
+
+async function cambiaStatoManutenzione(veicoloId, nuovoStato) {
+  const messaggio = nuovoStato === "manutenzione"
+    ? "Mettere questo mezzo in manutenzione?"
+    : "Terminare la manutenzione e rendere il mezzo libero?";
+
+  if (!confirm(messaggio)) return;
+
+  try {
+    await db.collection("mezziMeccanici")
+      .doc(veicoloId)
+      .update({ stato: nuovoStato });
+
+    alert("Stato del mezzo aggiornato.");
+  } catch (err) {
+    console.error(err);
+    alert("Errore durante l'aggiornamento dello stato.");
+  }
+}
+
 /* ================= load dislocazione mezzi ================= */
 function loadDislocazioneMezzi() {
   if (!accessGranted) return;
