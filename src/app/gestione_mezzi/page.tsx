@@ -250,6 +250,51 @@ export default function Home() {
                 <span>MAPPA MEZZI</span>
               </button>
             </a>
+              {/* INVIO RENDICONTAZIONE CARBURANTE */}
+            <a
+              href="/rendicontazione-carburante"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                textDecoration: "none",
+              }}
+            >
+              <button
+                style={btn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#004f9e";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#0066cc";
+                }}
+              >
+                📊
+                <span>INVIO RENDICONTAZIONE CARBURANTE</span>
+              </button>
+            </a>
+             {/* RENDICONTAZIONI */}
+            <a
+              href="/visualizza-rendicontazioni"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                textDecoration: "none",
+              }}
+            >
+              <button
+                style={btn}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#004f9e";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#0066cc";
+                }}
+              >
+                📊
+                <span>VISUALIZZA RENDICONTAZIONE CARBURANTE</span>
+              </button>
+            </a>
+            
           </div>
         </div>
       </section>

@@ -57,37 +57,37 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
 <h2>📄 Reports</h2>
 
 <div style="margin-bottom:10px;">
-  <button class="btn-approve" onclick="reportsMode='recent'; loadReports();">Mostra recenti</button>
-  <button class="btn-approve" onclick="reportsMode='all'; loadReports();">Mostra tutti</button>
+  <button class="btn-approve" onclick="reportsMode='recent'; loadReportsmezzi();">Mostra recenti</button>
+  <button class="btn-approve" onclick="reportsMode='all'; loadReportsmezzi();">Mostra tutti</button>
 </div>
 
 <h3 id="totKm">Totale KM: 0</h3>
-<div style="max-height: 350px; overflow-y: auto; border:1px solid #ccc;">
+
+    
+<div style="max-height:350px; overflow:auto; border:1px solid #ccc;">
   <table style="width:100%; border-collapse:collapse;">
-    <thead style="position: sticky; top: 0; background:#0070f3; color:white; z-index:1;">
-<table>
-<thead>
-<tr>
-  <th>Data / Ora</th>
-  <th>Distretto</th>
-  <th>Sito Intervento</th>
-  <th>Tipo Mezzo</th>
-  <th>Azione</th>//aggiunta
-  <th>Identificativo</th>
-  <th>PDF</th>
-  <th>Excel</th>
-  <th>Gasolio (L)</th>
-  <th>Superficie (m²)</th>
-  <th>Operatore</th>
-  <th>Note</th>
-   <th>Comune</th>
-   <th>Allegati</th>
-  
-</tr>
-</thead>
-<tbody id="reportsBody"></tbody>
-</table>
+    <thead style="position:sticky; top:0; background:#0070f3; color:white; z-index:1;">
+      <tr>
+        <th>Data / Ora</th>
+        <th>Distretto</th>
+        <th>Sito Intervento</th>
+        <th>Tipo Mezzo</th>
+        <th>Azione</th>
+        <th>Identificativo</th>
+        <th>PDF</th>
+        <th>Excel</th>
+        <th>Gasolio (L)</th>
+        <th>Superficie (m²)</th>
+        <th>Operatore</th>
+        <th>Note</th>
+        <th>Comune</th>
+        <th>Allegati</th>
+      </tr>
+    </thead>
+    <tbody id="reportsBody"></tbody>
+  </table>
 </div>
+
 
 <div style="max-height: 350px; overflow-y: auto; border:1px solid #ccc;">
   <table style="width:100%; border-collapse:collapse;">
@@ -302,8 +302,21 @@ if (active !== "ALL" && d.distretto != active) return;
     <td>${d.distretto}</td>
     <td>${d.sitoIntervento}</td>
     <td>${d.tipoMezzo}</td>
+    <td>
+  <button onclick="modificaReport('${d.id}')">
+    Modifica
+  </button>
+</td>
     <td>${d.identificativo}</td>
-    <td>${d.pdf ? `<a href="${d.pdf}" target="_blank">PDF</a>` : "-"}</td>
+    <td>
+  ${d.pdf ? `<a href="${d.pdf}" target="_blank">PDF attuale</a>` : "Nessun PDF"}
+  <br>
+  <input
+    type="file"
+    accept="application/pdf"
+    onchange="sostituisciPdfReport(event, '${d.id}')"
+  >
+</td>
     <td>${d.excel ? `<a href="${d.excel}" target="_blank">Excel</a>` : "-"}</td>
     <td>${d.gasolioLitri || 0}</td>
     <td>${d.superficieMq || 0}</td>
@@ -665,6 +678,159 @@ if (!tipoMezzo && r.veicoloId) {
 
 function reloadAll(){  loadReportsmezzi();   loadMezzi(); loadRichiestemezzo(); loadDislocazioneMezzi();  }
 function clearAllTables(){ reportsBody.innerHTML=""; veicoliBody.innerHTML=""; richiesteBody.innerHTML=""; markersReport.clearLayers(); markersRichieste.clearLayers(); }
+
+async function modificaReport(reportId) {
+
+  if (!accessGranted) {
+    alert("Accesso non autorizzato");
+    return;
+  }
+
+  const report = reportsCache.find(r => r.id === reportId);
+
+  if (!report) {
+    alert("Report non trovato");
+    return;
+  }
+
+  const sitoIntervento = prompt(
+    "Sito intervento:",
+    report.sitoIntervento || ""
+  );
+  if (sitoIntervento === null) return;
+
+  const tipoMezzo = prompt(
+    "Tipo mezzo:",
+    report.tipoMezzo || ""
+  );
+  if (tipoMezzo === null) return;
+
+  const identificativo = prompt(
+    "Identificativo mezzo:",
+    report.identificativo || ""
+  );
+  if (identificativo === null) return;
+
+  const gasolio = prompt(
+    "Gasolio (litri):",
+    report.gasolioLitri ?? 0
+  );
+  if (gasolio === null) return;
+
+  const superficie = prompt(
+    "Superficie (m²):",
+    report.superficieMq ?? 0
+  );
+  if (superficie === null) return;
+
+  const operatore = prompt(
+    "Operatore:",
+    report.operatore || ""
+  );
+  if (operatore === null) return;
+
+  const note = prompt(
+    "Note:",
+    report.note || ""
+  );
+  if (note === null) return;
+
+  const comune = prompt(
+    "Comune:",
+    report.comune || ""
+  );
+  if (comune === null) return;
+
+  if (
+    gasolio.trim() === "" ||
+    superficie.trim() === "" ||
+    !Number.isFinite(Number(gasolio)) ||
+    !Number.isFinite(Number(superficie)) ||
+    Number(gasolio) < 0 ||
+    Number(superficie) < 0
+  ) {
+    alert("Gasolio e superficie devono essere numeri validi e non negativi.");
+    return;
+  }
+
+  try {
+
+    await db.collection("reportmezzi").doc(reportId).update({
+      sitoIntervento: sitoIntervento,
+      tipoMezzo: tipoMezzo,
+      identificativo: identificativo,
+      gasolioLitri: Number(gasolio),
+      superficieMq: Number(superficie),
+      operatore: operatore,
+      note: note,
+      comune: comune
+    });
+
+    alert("Report modificato correttamente.");
+
+  } catch (err) {
+    console.error(err);
+    alert("Errore durante la modifica: " + err.message);
+  }
+}
+
+async function sostituisciPdfReport(event, reportId) {
+
+  if (!accessGranted) {
+    alert("Accesso non autorizzato");
+    event.target.value = "";
+    return;
+  }
+
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  if (file.type !== "application/pdf") {
+    alert("Seleziona un file PDF valido.");
+    event.target.value = "";
+    return;
+  }
+
+  if (!confirm("Vuoi caricare questo PDF come documento principale del report?")) {
+    event.target.value = "";
+    return;
+  }
+
+  try {
+
+    const storage = firebase.storage();
+
+    const nomeFile = Date.now() + "_" + file.name;
+
+    const ref = storage.ref(
+      `pdfReportsMezzi/${reportId}/${nomeFile}`
+    );
+
+    const snapshot = await ref.put(file);
+
+    const url = await snapshot.ref.getDownloadURL();
+
+    await db.collection("reportmezzi")
+      .doc(reportId)
+      .update({
+        pdf: url
+      });
+
+    alert("PDF principale aggiornato correttamente.");
+
+  } catch (err) {
+
+    console.error("Errore caricamento PDF:", err);
+
+    alert("Errore durante il caricamento del PDF: " + err.message);
+
+  } finally {
+
+    event.target.value = "";
+
+  }
+}
 async function uploadAllegato(event, reportId){
   const file = event.target.files[0];
   if(!file) return;

@@ -321,10 +321,72 @@ function verificaPasswordPagina() {
   overflow-y:auto;
 ">
   <strong>Elenco mezzi</strong>
+  
+<input
+  type="text"
+  id="cercaMezzo"
+  placeholder="Cerca identificativo, tipo o comune..."
+  oninput="renderMappa()"
+  style="width:100%;padding:9px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;margin-top:8px;"
+>
+
   <div id="listaMezzi" style="margin-top:10px;font-size:13px;">
     Caricamento...
   </div>
 </div>
+
+
+
+
+<!-- RIEPILOGO OPERATIVO MEZZI -->
+<div id="riepilogoMezzi" style="
+  position:relative;
+  z-index:1000;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  padding:12px 16px;
+  background:#f1f5f9;
+">
+  <div style="background:#fff;border-left:5px solid #16a34a;border-radius:10px;padding:14px;box-shadow:0 2px 8px #00000012;">
+    <div style="font-size:12px;font-weight:700;color:#64748b;">MEZZI DISPONIBILI</div>
+    <div id="kpiLiberi" style="font-size:30px;font-weight:800;color:#16a34a;">0</div>
+  </div>
+
+  <div style="background:#fff;border-left:5px solid #2563eb;border-radius:10px;padding:14px;box-shadow:0 2px 8px #00000012;">
+    <div style="font-size:12px;font-weight:700;color:#64748b;">MEZZI ASSEGNATI</div>
+    <div id="kpiOccupati" style="font-size:30px;font-weight:800;color:#2563eb;">0</div>
+  </div>
+
+  <div style="background:#fff;border-left:5px solid #dc2626;border-radius:10px;padding:14px;box-shadow:0 2px 8px #00000012;">
+    <div style="font-size:12px;font-weight:700;color:#64748b;">IN MANUTENZIONE</div>
+    <div id="kpiManutenzione" style="font-size:30px;font-weight:800;color:#dc2626;">0</div>
+  </div>
+
+  <div style="background:#fff;border-left:5px solid #ea580c;border-radius:10px;padding:14px;box-shadow:0 2px 8px #00000012;">
+    <div style="font-size:12px;font-weight:700;color:#64748b;">INTERVENTI ATTIVI</div>
+    <div id="kpiInterventi" style="font-size:30px;font-weight:800;color:#ea580c;">0</div>
+  </div>
+</div>
+
+<style>
+@media (max-width:700px) {
+  #riepilogoMezzi {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    padding:8px !important;
+  }
+
+  #riepilogoMezzi > div {
+    padding:10px !important;
+  }
+
+  #riepilogoMezzi div[id^="kpi"] {
+    font-size:24px !important;
+  }
+}
+</style>
+```
 
 
 <div id="map"></div>
@@ -406,6 +468,75 @@ const iconaRuspa = L.icon({
 
 function centraCalabria() {
   map.setView([38.1, 15.6], 9);
+}
+function centraMezzo(idMezzo) {
+  const mezzo = mezziMeccanici.find(
+    m => String(m.id) === String(idMezzo)
+  );
+
+  if (!mezzo) {
+    alert("Mezzo non trovato.");
+    return;
+  }
+
+  const richiesta = [...richieste]
+    .reverse()
+    .find(r =>
+      r.status === "approvata" &&
+      (
+        String(r.mezzoId || "") === String(mezzo.id) ||
+        String(r.veicoloId || "") === String(mezzo.id)
+      ) &&
+      coordinateValide(r)
+    );
+
+  if (richiesta) {
+    map.setView([
+      Number(richiesta.latitudine),
+      Number(richiesta.longitudine)
+    ], 15);
+
+    gruppoMezzi.eachLayer(marker => {
+      const posizione = marker.getLatLng();
+
+      if (
+        posizione.lat === Number(richiesta.latitudine) &&
+        posizione.lng === Number(richiesta.longitudine)
+      ) {
+        marker.openPopup();
+      }
+    });
+
+    return;
+  }
+
+  const report = reports.find(r =>
+    String(r.identificativo || "") ===
+      String(mezzo.identificativo || "") &&
+    coordinateValide(r)
+  );
+
+  if (report) {
+    map.setView([
+      Number(report.latitudine),
+      Number(report.longitudine)
+    ], 15);
+
+    gruppoReport.eachLayer(marker => {
+      const posizione = marker.getLatLng();
+
+      if (
+        posizione.lat === Number(report.latitudine) &&
+        posizione.lng === Number(report.longitudine)
+      ) {
+        marker.openPopup();
+      }
+    });
+
+    return;
+  }
+
+  alert("Non sono disponibili coordinate per questo mezzo.");
 }
 
 function distrettoCorrente() {
@@ -492,6 +623,11 @@ marker.bindPopup(`
   <b>Targa:</b> ${r.veicoloTarga || "-"}<br>
   <b>Comune:</b> ${r.comune || "-"}<br>
   <b>Distretto:</b> ${r.distretto ?? "-"}<br>
+    <b>Durata lavori presunta:</b> ${
+    r.durataPresunta != null
+      ? r.durataPresunta + " giorni"
+      : "Non indicata"
+  }<br>
   <b>Stato:</b> ${r.status}<br>
   ${
     r.pdf
@@ -506,6 +642,18 @@ marker.bindPopup(`
     nMezzi++;
   });
 
+  
+const comunePerMezzo = {};
+
+richieste.forEach(r => {
+  if (r.status === "approvata" && r.mezzoId && r.comune) {
+    comunePerMezzo[r.mezzoId] = r.comune;
+  }
+});
+
+const testoRicerca = (
+  document.getElementById("cercaMezzo").value || ""
+).toLowerCase().trim();
  
 const mezziFiltrati = mezziMeccanici.filter(m => {
   if (distretto !== "ALL" &&
@@ -515,11 +663,18 @@ const mezziFiltrati = mezziMeccanici.filter(m => {
   const assegnato = stato === "occupato";
   const manutenzione = stato === "manutenzione";
 
-  if (filtroStato === "assegnati") return assegnato;
-  if (filtroStato === "liberi") {
-    return !assegnato && !manutenzione;
-  }
-  if (filtroStato === "manutenzione") return manutenzione;
+  if (filtroStato === "assegnati" && !assegnato) return false;
+  if (filtroStato === "liberi" && stato !== "libero") return false;
+  if (filtroStato === "manutenzione" && !manutenzione) return false;
+
+  const testoMezzo = [
+    m.identificativo,
+    m.id,
+    m.tipoMezzo,
+    m.comune
+  ].join(" ").toLowerCase();
+
+  if (!testoMezzo.includes(testoRicerca)) return false;
 
   return true;
 });
@@ -527,10 +682,17 @@ const mezziFiltrati = mezziMeccanici.filter(m => {
 
 document.getElementById("listaMezzi").innerHTML =
   mezziFiltrati.length
-    ? mezziFiltrati.map(m => `
-        <div style="padding:8px 0;border-bottom:1px solid #eee;">
-          <b>${m.tipoMezzo || "Mezzo senza descrizione"}</b><br>
-          <span>${m.identificativo || m.id}</span><br>
+   
+? mezziFiltrati.map(m => `
+  <div
+  onclick="centraMezzo('${m.id}')"
+  style="padding:8px 0;border-bottom:1px solid #eee;cursor:pointer;"
+  title="Clicca per visualizzare il mezzo sulla mappa"
+>
+    <b>${m.tipoMezzo || "Mezzo senza descrizione"}</b><br>
+    <span>${m.identificativo || m.id}</span><br>
+   <span>📍 Comune: ${comunePerMezzo[m.id] || m.comune || "Non indicato"}</span><br>
+
          
 <span style="color:${
   String(m.stato || "").toLowerCase() === "manutenzione"
@@ -553,9 +715,32 @@ document.getElementById("listaMezzi").innerHTML =
     : "<p>Nessun mezzo trovato.</p>";
 
 
-  // Aggiorniamo i contatori
+    // Aggiorniamo i contatori esistenti
   document.getElementById("numReport").textContent = nReport;
   document.getElementById("numMezzi").textContent = nMezzi;
+
+  // RIEPILOGO OPERATIVO DEL DISTRETTO SELEZIONATO
+  const mezziDistretto = mezziMeccanici;
+
+  const nLiberi = mezziDistretto.filter(m =>
+    String(m.stato || "").toLowerCase() === "libero"
+  ).length;
+
+  const nOccupati = mezziDistretto.filter(m =>
+    String(m.stato || "").toLowerCase() === "occupato"
+  ).length;
+
+  const nManutenzione = mezziDistretto.filter(m =>
+    String(m.stato || "").toLowerCase() === "manutenzione"
+  ).length;
+
+  const nInterventi = richieste.filter(r =>
+  r.status === "approvata"
+).length;
+  document.getElementById("kpiLiberi").textContent = nLiberi;
+  document.getElementById("kpiOccupati").textContent = nOccupati;
+  document.getElementById("kpiManutenzione").textContent = nManutenzione;
+  document.getElementById("kpiInterventi").textContent = nInterventi;
 }
 
 
@@ -564,35 +749,7 @@ document.getElementById("distrettoSelector")
   document.getElementById("filtroStatoMezzi")
   .addEventListener("change", renderMappa);
 
-// Il clic mostra un punto temporaneo e le sue coordinate.
-// Non salva nulla su Firebase.
-map.on("click", function(e) {
-  const lat = e.latlng.lat;
-  const lon = e.latlng.lng;
 
-  if (markerSelezione) {
-    map.removeLayer(markerSelezione);
-  }
-
-  markerSelezione = L.circleMarker(e.latlng, {
-    radius: 8,
-    color: "#ffffff",
-    weight: 3,
-    fillColor: "#e34b45",
-    fillOpacity: 1
-  }).addTo(map);
-
-  markerSelezione.bindPopup(
-    "<b>Punto selezionato</b><br>" +
-    "Latitudine: " + lat.toFixed(6) + "<br>" +
-    "Longitudine: " + lon.toFixed(6)
-  ).openPopup();
-
-  document.getElementById("coordinateBox").innerHTML =
-    "<b>Punto selezionato</b><br>" +
-    "Latitudine: " + lat.toFixed(6) + "<br>" +
-    "Longitudine: " + lon.toFixed(6);
-});
 
 db.collection("reportmezzi").onSnapshot(snap => {
   reports = snap.docs.map(doc => ({
