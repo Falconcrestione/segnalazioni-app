@@ -2945,10 +2945,13 @@ function loadRichieste() {
     markersRichieste.clearLayers();
 
     const veicoliSnap = await db.collection("veicoli").get();
-    const veicoli = veicoliSnap.docs.map(vdoc => ({
-      id: vdoc.id,
-      ...vdoc.data()
-    }));
+const veicoli = veicoliSnap.docs.map(vdoc => ({
+  id: vdoc.id,
+  ...vdoc.data()
+}));
+
+// Veicoli utilizzati come sostituti in sostituzioni ancora attive
+const sostitutiviAttivi = await getVeicoliSostitutiviAttivi();//AGGIUNTAAAAA
 
    const richiesteOrdinate = [...snap.docs].sort((a, b) => {
   const dataA = a.data().dataMissione
@@ -2965,14 +2968,14 @@ function loadRichieste() {
 for (const doc of richiesteOrdinate) {
 
   const r = doc.data();
-  console.log(
-  "Missione:",
-  r.dataMissione ? r.dataMissione.toDate() : null
-);
+  //console.log(
+  //"Missione:",
+ // r.dataMissione ? r.dataMissione.toDate() : null
+//);
   const from = document.getElementById("richiesteFromDate")?.value;
 const to = document.getElementById("richiesteToDate")?.value;
-console.log("FROM", from);
-console.log("TO", to);
+//console.log("FROM", from);
+//console.log("TO", to);
 
 if (r.dataMissione) {
 
@@ -3027,23 +3030,32 @@ if (r.dataMissione) {
         );
 
         const options = veicoli
-          .filter(v => v.distretto === r.distretto)
-          .map(v => {
+  .filter(v => v.distretto === r.distretto)
+  .map(v => {
 
-            const isOccupato = occupati.includes(v.id);
+    const isOccupato = occupati.includes(v.id);
+    const isSostitutoAttivo = sostitutiviAttivi.has(v.id);
+    const nonDisponibile = isOccupato || isSostitutoAttivo;
 
-            return `
-              <option 
-                value="${v.id}|${v.targa}|${v.modello}"
-                ${isOccupato ? "disabled" : ""}
-                style="${isOccupato ? "color:red;font-weight:bold;" : ""}"
-              >
-                ${isOccupato ? "❌ OCCUPATO - " : ""}
-                ${v.modello} – ${v.targa}
-              </option>
-            `;
-          })
-          .join("");
+    let etichetta = "";
+
+    if (isSostitutoAttivo) {
+      etichetta = "⛔ SOSTITUTIVO - ";
+    } else if (isOccupato) {
+      etichetta = "❌ OCCUPATO - ";
+    }
+
+    return `
+      <option
+        value="${v.id}|${v.targa}|${v.modello}"
+        ${nonDisponibile ? "disabled" : ""}
+        style="${nonDisponibile ? "color:red;font-weight:bold;" : ""}"
+      >
+        ${etichetta}${v.modello} – ${v.targa}
+      </option>
+    `;
+  })
+  .join("");
 
         azioni = `
           <select id="veicolo_${doc.id}">
@@ -3123,6 +3135,8 @@ async function assegnaVeicolo(richiestaId,emailDestinatario,nomeDestinatario){
   const richiestaDoc = await db.collection("richieste").doc(richiestaId).get();
 const richiesta = richiestaDoc.data();
 
+
+
 const occupato = await veicoloOccupatoInData(
   veicoloId,
   richiesta.dataMissione.toDate()
@@ -3131,6 +3145,7 @@ const occupato = await veicoloOccupatoInData(
 if (occupato) {
   alert("❌ Veicolo già assegnato per questo giorno");
   return;
+  
 }
   if(!navigator.geolocation) { alert("Geolocalizzazione non supportata"); return; }
   navigator.geolocation.getCurrentPosition(async pos=>{
@@ -4531,6 +4546,17 @@ async function getVeicoliOccupatiInData(dataMissione) {
   });
 
   return occupati;
+}
+async function getVeicoliSostitutiviAttivi() {
+  const snap = await db.collection("sostituzioni_veicoli")
+    .where("stato", "==", "ATTIVA")
+    .get();
+
+  return new Set(
+    snap.docs
+      .map(doc => doc.data().veicoloSostitutoId)
+      .filter(id => id && id !== "ESTERNO")
+  );
 }
 async function aggiornaStatoVeicolo(veicoloId) {
 

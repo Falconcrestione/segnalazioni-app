@@ -24,6 +24,7 @@ export default function RichiediVeicolo() {
   const [dataMissione, setDataMissione] = useState("");
   const [durataPresunta, setDurataPresunta] = useState("");
   const [distretto, setDistretto] = useState("");
+  const [nomeop, setNomeop]= useState("");
 
   const [mezzi, setMezzi] = useState<any[]>([]);
   const [mezzoId, setMezzoId] = useState("");
@@ -111,6 +112,7 @@ if (distretto === "sede_centrale") {
 
         await addDoc(collection(db, "richiestemezzi"), {
           nome,
+          nomeop,
           email,
           sitoIntervento,
          dataMissione: dataMissione
@@ -139,6 +141,7 @@ durataPresunta: durataPresunta
         setNome("");
         setEmail("");
         setSitoIntervento("");
+        setNomeop("");
         setDataMissione("");
         setDurataPresunta("");
         setDistretto("");
@@ -158,7 +161,7 @@ durataPresunta: durataPresunta
 
         <input
           className="input"
-          placeholder="Nome e Cognome"
+          placeholder="Nome e Cognome DL"
           value={nome}
           onChange={e => setNome(e.target.value)}
         />
@@ -217,6 +220,12 @@ durataPresunta: durataPresunta
             </option>
           ))}
         </select>
+          <input
+          className="input"
+          placeholder="Nominativo Operatore Mezzo  "
+          value={nomeop}
+          onChange={e => setNomeop(e.target.value)}
+        />
 
         <input
           className="block w-full text-sm text-gray-600

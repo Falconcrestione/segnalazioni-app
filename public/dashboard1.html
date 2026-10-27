@@ -100,10 +100,12 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
       <th>Data/ora</th>
       <th>tipoMezzo</th>
       <th>Identificativo</th>
+      <th>Operatore Mezzo</th>
       <th>Sito intervento</th>
       <th>Durata Lavori presunta (giorni)</th>
       <th>Stato</th> <!-- nuova colonna -->
        <th>Comune</th>
+       <th>Azione</th>//aggiunta
     </tr>
   </thead>
   <tbody id="dislocazioneBody"></tbody>
@@ -456,6 +458,28 @@ const marker = L.marker([r.latitudine, r.longitudine], {
 }
 
 
+async function rifiutaRichiesta(richiestaId) {
+  if (!accessGranted) {
+    alert("Accesso non autorizzato");
+    return;
+  }
+
+  if (!confirm("Vuoi eliminare definitivamente questa richiesta?")) {
+    return;
+  }
+
+  try {
+    await db.collection("richiestemezzi").doc(richiestaId).delete();
+
+    alert("Richiesta eliminata.");
+    // La tabella si aggiorna automaticamente tramite onSnapshot.
+  } catch (errore) {
+    console.error("Errore eliminazione richiesta:", errore);
+    alert("Errore durante l'eliminazione: " + errore.message);
+  }
+}
+
+
 async function assegnaVeicolo(richiestaId, emailDestinatario){
   const sel = document.getElementById(`mezzo_${richiestaId}`);
   const comuneInput = document.getElementById(`comune_${richiestaId}`);
@@ -626,54 +650,168 @@ if (!tipoMezzo && r.veicoloId) {
       if (r.status !== "approvata" && r.status !== "completata") return;
 
       const dataMissione = r.dataMissione ? r.dataMissione.toDate() : null;
-      const durata = r.durataPresunta || 1;
-      const fineMissione = dataMissione
-        ? new Date(dataMissione.getTime() + durata * 24 * 60 * 60 * 1000)
-        : null;
+const durata = Number(r.durataPresunta) || 1;
 
-      const oggi = new Date();
+const fineMissione = dataMissione
+  ? new Date(
+      dataMissione.getFullYear(),
+      dataMissione.getMonth(),
+      dataMissione.getDate() + durata
+    )
+  : null;
+
+const oggi = new Date();
+oggi.setHours(0, 0, 0, 0);
+
+const giorniRestanti = fineMissione
+  ? Math.ceil((fineMissione - oggi) / (1000 * 60 * 60 * 24))
+  : null;
+
+
+
 
       let stato = "";
-      let rowStyle = "";
+let rowStyle = "";
 
-      // 🔒 SE COMPLETATA → CHIUSA
-      if (r.status === "completata") {
-        stato = "✅ Chiusa";
-        rowStyle = "background-color:#d4edda;color:#155724;";
-      }
-      // ⏳ SE ANCORA APPROVATA → calcolo scadenza
-      else if (fineMissione) {
-        const giorniRestanti = Math.ceil(
-          (fineMissione - oggi) / (1000 * 60 * 60 * 24)
-        );
+// SE LA MISSIONE È COMPLETATA
+if (r.status === "completata") {
 
-        if (giorniRestanti < 0) {
-          stato = "❌ Scaduta";
-          rowStyle = "background-color:#f8d7da;color:#721c24;";
-        } else if (giorniRestanti <= 1) {
-          stato = "⚠️ In scadenza";
-          rowStyle = "background-color:#fff3cd;color:#856404;";
-        } else {
-          stato = "✅ In corso";
-        }
-      }
+  stato = "✅ Chiusa";
+  rowStyle = "background-color:#d4edda;color:#155724;";
+
+} else if (giorniRestanti !== null) {
+
+  // MISSIONE SCADUTA
+  if (giorniRestanti <= 0) {
+
+    stato = "❌ Scaduta";
+    rowStyle = "background-color:#f8d7da;color:#721c24;";
+
+  // MISSIONE IN SCADENZA
+  } else if (giorniRestanti <= 1) {
+
+    stato = `⚠️ In scadenza (${giorniRestanti} giorni)`;
+    rowStyle = "background-color:#fff3cd;color:#856404;";
+
+  // MISSIONE IN CORSO
+  } else {
+
+    stato = `✅ In corso (${giorniRestanti} giorni restanti)`;
+
+  }
+}
 
       tbody.innerHTML += `
         <tr style="${rowStyle}">
           <td>${dataMissione ? dataMissione.toLocaleDateString("it-IT") : "-"}</td>
         <td>${tipoMezzo || "-"}</td>
           <td>${r.identificativo || r.veicoloTarga}</td>
+          <td>${r.nomeop || "-"}</td>
           <td>${r.sitoIntervento || "-"}</td>
           <td>${durata}</td>
           <td>${stato}</td>
-          <td>${r.comune || "-"}</td>
+         <td>${r.comune || "-"}</td>
+<td><button onclick="modificaDislocazione('${doc.id}')">Modifica</button></td>
         </tr>
       `;
     });
   });
 }
 
+async function modificaDislocazione(richiestaId) {
+  if (!accessGranted) {
+    alert("Accesso non autorizzato");
+    return;
+  }
 
+  try {
+    const docRef = db.collection("richiestemezzi").doc(richiestaId);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      alert("Richiesta non trovata.");
+      return;
+    }
+
+    const r = snap.data();
+
+    const dataAttuale = r.dataMissione?.toDate
+      ? r.dataMissione.toDate()
+      : null;
+
+    const nuovaData = prompt(
+      "Data missione (AAAA-MM-GG):",
+      dataAttuale ? dataAttuale.toISOString().slice(0, 10) : ""
+    );
+    if (nuovaData === null) return;
+
+    const tipoMezzo = prompt("Tipo mezzo:", r.tipoMezzo || "");
+    if (tipoMezzo === null) return;
+
+    const identificativo = prompt(
+      "Identificativo mezzo:",
+      r.identificativo || r.veicoloTarga || ""
+    );
+    if (identificativo === null) return;
+
+    const nomeop = prompt(
+  "Nominativo Operatore Mezzo:",
+  r.nomeop || ""
+);
+if (nomeop === null) return;
+
+    const sitoIntervento = prompt(
+      "Sito intervento:",
+      r.sitoIntervento || ""
+    );
+    if (sitoIntervento === null) return;
+
+    const durata = prompt(
+      "Durata lavori presunta (giorni):",
+      r.durataPresunta || 1
+    );
+    if (durata === null) return;
+
+    const comune = prompt("Comune:", r.comune || "");
+    if (comune === null) return;
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nuovaData)) {
+      alert("Inserisci la data nel formato AAAA-MM-GG.");
+      return;
+    }
+
+    if (!Number.isInteger(Number(durata)) || Number(durata) < 1) {
+      alert("La durata deve essere un numero intero maggiore di zero.");
+      return;
+    }
+
+    const [anno, mese, giorno] = nuovaData.split("-").map(Number);
+    const dataMissione = new Date(anno, mese - 1, giorno);
+
+    if (
+      dataMissione.getFullYear() !== anno ||
+      dataMissione.getMonth() !== mese - 1 ||
+      dataMissione.getDate() !== giorno
+    ) {
+      alert("La data inserita non è valida.");
+      return;
+    }
+
+    await docRef.update({
+  dataMissione: firebase.firestore.Timestamp.fromDate(dataMissione),
+  tipoMezzo: tipoMezzo.trim(),
+  identificativo: identificativo.trim(),
+  nomeop: nomeop.trim(),
+  sitoIntervento: sitoIntervento.trim(),
+  durataPresunta: Number(durata),
+  comune: comune.trim()
+});
+    alert("Dislocazione aggiornata.");
+  } catch (errore) {
+    console.error("Errore modifica dislocazione:", errore);
+    alert("Errore durante la modifica: " + errore.message);
+  }
+}
 
 
 function reloadAll(){  loadReportsmezzi();   loadMezzi(); loadRichiestemezzo(); loadDislocazioneMezzi();  }

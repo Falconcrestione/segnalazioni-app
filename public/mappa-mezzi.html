@@ -616,18 +616,57 @@ function renderMappa() {
     ], { icon: iconaRuspa });
 
     
+
+const dataMissione = r.dataMissione
+  ? (typeof r.dataMissione.toDate === "function"
+      ? r.dataMissione.toDate()
+      : new Date(r.dataMissione))
+  : null;
+
+const dataFormattata = dataMissione
+  ? dataMissione.toLocaleDateString("it-IT")
+  : "Non indicata";
+
+const durata = Number(r.durataPresunta);
+
+const fineMissione = dataMissione && durata > 0
+  ? new Date(
+      dataMissione.getFullYear(),
+      dataMissione.getMonth(),
+      dataMissione.getDate() + durata
+    )
+  : null;
+
+const oggi = new Date();
+oggi.setHours(0, 0, 0, 0);
+
+const giorniRestanti = fineMissione
+  ? Math.ceil((fineMissione - oggi) / (1000 * 60 * 60 * 24))
+  : null;
+
+let testoDurata = "Non indicata";
+
+if (giorniRestanti !== null) {
+  if (giorniRestanti <= 0) {
+    testoDurata = "❌ Scaduta";
+  } else if (giorniRestanti <= 1) {
+    testoDurata = `⚠️ In scadenza - ${giorniRestanti} giorno`;
+  } else {
+    testoDurata = `✅ ${giorniRestanti} giorni restanti`;
+  }
+}
+
 marker.bindPopup(`
   <b>🚜 Mezzo assegnato</b><br>
   <b>Tipo:</b> ${r.tipoMezzo || "-"}<br>
   <b>Identificativo:</b> ${r.identificativo || r.veicoloTarga || "-"}<br>
+  <b>Operatore mezzo:</b> ${r.nomeop || "Non indicato"}<br>
+  <b>Data inizio lavori:</b> ${dataFormattata}<br>
+  <b>Durata iniziale:</b> ${Number.isFinite(durata) && durata > 0 ? durata + " giorni" : "Non indicata"}<br>
+  <b>Durata residua:</b> ${testoDurata}<br>
   <b>Targa:</b> ${r.veicoloTarga || "-"}<br>
   <b>Comune:</b> ${r.comune || "-"}<br>
   <b>Distretto:</b> ${r.distretto ?? "-"}<br>
-    <b>Durata lavori presunta:</b> ${
-    r.durataPresunta != null
-      ? r.durataPresunta + " giorni"
-      : "Non indicata"
-  }<br>
   <b>Stato:</b> ${r.status}<br>
   ${
     r.pdf
@@ -637,6 +676,7 @@ marker.bindPopup(`
       : `<span>📄 PDF non disponibile</span>`
   }
 `);
+
 
     gruppoMezzi.addLayer(marker);
     nMezzi++;
