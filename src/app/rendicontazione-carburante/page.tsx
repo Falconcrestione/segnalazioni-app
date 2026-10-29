@@ -280,14 +280,14 @@ export default function RendicontazioneCarburantePage() {
           dataMissione: lavoroSelezionato.dataMissione || null,
           assegnatoAt: lavoroSelezionato.assegnatoAt || null,
           rifornimenti,
-          totaleLitri: rifornimenti.reduce(
-            (tot, r) => tot + r.litri,
-            0
-          ),
-          totaleEuro: rifornimenti.reduce(
-            (tot, r) => tot + r.euro,
-            0
-          ),
+         totaleLitri: rifornimenti.reduce<number>(
+  (tot, r) => tot + r.litri,
+  0
+),
+          totaleEuro: rifornimenti.reduce<number>(
+  (tot, r) => tot + r.euro,
+  0
+),
           note: note.trim(),
           stato: "inviata",
           createdAt: Timestamp.now(),
