@@ -71,6 +71,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
         <th>Data / Ora</th>
         <th>Distretto</th>
         <th>Sito Intervento</th>
+         <th>Luogo Lavorativo</th>
         <th>Tipo Mezzo</th>
         <th>Azione</th>
         <th>Identificativo</th>
@@ -102,6 +103,7 @@ button { padding:6px 10px; border:none; border-radius:5px; cursor:pointer; }
       <th>Identificativo</th>
       <th>Operatore Mezzo</th>
       <th>Sito intervento</th>
+       <th>Luogo Lavorativo</th>
       <th>Durata Lavori presunta (giorni)</th>
       <th>Stato</th> <!-- nuova colonna -->
        <th>Comune</th>
@@ -303,6 +305,7 @@ if (active !== "ALL" && d.distretto != active) return;
     <td>${dataOra}</td>
     <td>${d.distretto}</td>
     <td>${d.sitoIntervento}</td>
+     <td>${d.luogoLavorazione}</td>
     <td>${d.tipoMezzo}</td>
     <td>
   <button onclick="modificaReport('${d.id}')">
@@ -706,8 +709,9 @@ if (r.status === "completata") {
           <td>${dataMissione ? dataMissione.toLocaleDateString("it-IT") : "-"}</td>
         <td>${tipoMezzo || "-"}</td>
           <td>${r.identificativo || r.veicoloTarga}</td>
-          <td>${r.nomeop || "-"}</td>
+                    <td>${r.nomeop || "-"}</td>
           <td>${r.sitoIntervento || "-"}</td>
+          <td>${r.luogoLavorazione || "-"}</td>
           <td>${durata}</td>
           <td>${stato}</td>
          <td>${r.comune || "-"}</td>
@@ -766,6 +770,13 @@ if (nomeop === null) return;
     );
     if (sitoIntervento === null) return;
 
+    const luogoLavorazione = prompt(
+  "Luogo lavorativo:",
+  r.luogoLavorazione || ""
+);
+
+if (luogoLavorazione === null) return;
+
     const durata = prompt(
       "Durata lavori presunta (giorni):",
       r.durataPresunta || 1
@@ -803,6 +814,7 @@ if (nomeop === null) return;
   identificativo: identificativo.trim(),
   nomeop: nomeop.trim(),
   sitoIntervento: sitoIntervento.trim(),
+  luogoLavorazione: luogoLavorazione.trim(),
   durataPresunta: Number(durata),
   comune: comune.trim()
 });

@@ -21,6 +21,7 @@ export default function RichiediVeicolo() {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [sitoIntervento, setSitoIntervento] = useState("");
+  const [luogoLavorazione, setLuogoLavorazione] = useState("");
   const [dataMissione, setDataMissione] = useState("");
   const [durataPresunta, setDurataPresunta] = useState("");
   const [distretto, setDistretto] = useState("");
@@ -115,6 +116,7 @@ if (distretto === "sede_centrale") {
           nomeop,
           email,
           sitoIntervento,
+          luogoLavorazione,
          dataMissione: dataMissione
   ? Timestamp.fromDate(new Date(dataMissione))
   : null,
@@ -141,6 +143,7 @@ durataPresunta: durataPresunta
         setNome("");
         setEmail("");
         setSitoIntervento("");
+        setLuogoLavorazione("");
         setNomeop("");
         setDataMissione("");
         setDurataPresunta("");
@@ -179,6 +182,12 @@ durataPresunta: durataPresunta
           value={sitoIntervento}
           onChange={e => setSitoIntervento(e.target.value)}
         />
+        <input
+  className="input"
+  placeholder="Luogo lavorativo"
+  value={luogoLavorazione}
+  onChange={e => setLuogoLavorazione(e.target.value)}
+/>
 
         <input
           className="input"

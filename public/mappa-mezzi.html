@@ -661,6 +661,7 @@ marker.bindPopup(`
   <b>Tipo:</b> ${r.tipoMezzo || "-"}<br>
   <b>Identificativo:</b> ${r.identificativo || r.veicoloTarga || "-"}<br>
   <b>Operatore mezzo:</b> ${r.nomeop || "Non indicato"}<br>
+  <b>Luogo lavorativo:</b> ${r.luogoLavorazione || "Non indicato"}<br>
   <b>Data inizio lavori:</b> ${dataFormattata}<br>
   <b>Durata iniziale:</b> ${Number.isFinite(durata) && durata > 0 ? durata + " giorni" : "Non indicata"}<br>
   <b>Durata residua:</b> ${testoDurata}<br>
