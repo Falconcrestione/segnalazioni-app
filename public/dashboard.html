@@ -1783,6 +1783,7 @@ if (
 }
 
 let targaEffettiva = r.targa || v.targa;
+let cartaQ8Effettiva = v.cartaQ8;//agiunto ORA
 let veicoloSostitutivo = false;
 
 sostituzioniQ8.forEach(s => {
@@ -1817,6 +1818,12 @@ sostituzioniQ8.forEach(s => {
   ) {
     targaEffettiva = r.targa;
     veicoloSostitutivo = true;
+    if (s.veicoloSostitutoId !== "ESTERNO") {
+  cartaQ8Effettiva =
+    veicoli.find(x =>
+      normalizzaTarga(x.targa) === normalizzaTarga(targaEffettiva)
+    )?.cartaQ8 || "—";
+}//AGGIUNTO ORA DA IF IN POI
   }
 });
 
@@ -1831,11 +1838,7 @@ righeDettaglio.push({
 
   veicoloSostitutivo: veicoloSostitutivo,
 
-  cartaQ8: veicoloSostitutivo
-    ? (veicoli.find(x =>
-        normalizzaTarga(x.targa) === normalizzaTarga(targaEffettiva)
-      )?.cartaQ8 || "—")
-    : v.cartaQ8,
+  cartaQ8: cartaQ8Effettiva,
   data: dataReportDettaglio,
   conducente: r.conducente || "—",
   comparto: r.comparto || "—",
