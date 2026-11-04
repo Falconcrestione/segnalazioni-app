@@ -50,53 +50,69 @@ export default function LiberaMezzo() {
     loadRichiesta();
   }, [richiestaId]);
 
-  const submitReport = async () => {
-    if (!richiesta || !excelFile) {
-      alert("Seleziona una richiesta e carica Excel");
-      return;
-    }
-    try {
-      const excelRef = ref(storage, `reportsExcel/${Date.now()}_${excelFile.name}`);
+  
+const submitReport = async () => {
+  if (!richiesta) {
+    alert("Seleziona una richiesta");
+    return;
+  }
+
+  try {
+    // Excel facoltativo
+    let excelUrl = "";
+
+    if (excelFile) {
+      const excelRef = ref(
+        storage,
+        `reportsExcel/${Date.now()}_${excelFile.name}`
+      );
+
       await uploadBytes(excelRef, excelFile);
-      const excelUrl = await getDownloadURL(excelRef);
-
-      await addDoc(collection(db, "reportmezzi"), {
-        createdAt: Timestamp.now(),
-        distretto: richiesta.distretto,
-        sitoIntervento: richiesta.sitoIntervento,
-        tipoMezzo: richiesta.tipoMezzo,
-        identificativo: richiesta.identificativo,
-        pdf: richiesta.pdf || "",
-        excel: excelUrl,
-        gasolioLitri: gasolioLitri || 0,
-        superficieMq: superficieMq || 0,
-        operatore: operatore || "",
-        note: note || ""
-      });
-
-      if (richiesta.veicoloId) {
-        await updateDoc(doc(db, "mezziMeccanici", richiesta.veicoloId), {
-          stato: "libero"
-        });
-      }
-
-      await updateDoc(doc(db, "richiestemezzi", richiesta.id), {
-        status: "completata"
-      });
-
-      alert("✅ Report inviato e mezzo liberato!");
-      setExcelFile(null);
-      setRichiesta(null);
-      setRichiestaId("");
-      setGasolioLitri("");
-      setSuperficieMq("");
-      setOperatore("");
-      setNote("");
-    } catch (err) {
-      console.error(err);
-      alert("❌ Errore invio report");
+      excelUrl = await getDownloadURL(excelRef);
     }
-  };
+
+    // Salvataggio report anche senza Excel e senza compilare i campi
+    await addDoc(collection(db, "reportmezzi"), {
+      createdAt: Timestamp.now(),
+      distretto: richiesta.distretto,
+      sitoIntervento: richiesta.sitoIntervento || "",
+      tipoMezzo: richiesta.tipoMezzo || "",
+      identificativo: richiesta.identificativo || "",
+      pdf: richiesta.pdf || "",
+      excel: excelUrl,
+      gasolioLitri: gasolioLitri === "" ? 0 : gasolioLitri,
+      superficieMq: superficieMq === "" ? 0 : superficieMq,
+      operatore: operatore || "",
+      note: note || ""
+    });
+
+    // Libera il mezzo
+    if (richiesta.veicoloId) {
+      await updateDoc(doc(db, "mezziMeccanici", richiesta.veicoloId), {
+        stato: "libero"
+      });
+    }
+
+    // Completa la richiesta
+    await updateDoc(doc(db, "richiestemezzi", richiesta.id), {
+      status: "completata"
+    });
+
+    alert("✅ Report inviato e mezzo liberato!");
+
+    setExcelFile(null);
+    setRichiesta(null);
+    setRichiestaId("");
+    setGasolioLitri("");
+    setSuperficieMq("");
+    setOperatore("");
+    setNote("");
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Errore invio report");
+  }
+};
 
   return (
     <div className="max-w-lg mx-auto mt-8 p-6 bg-white rounded-xl shadow-lg space-y-6">
