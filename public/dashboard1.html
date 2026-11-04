@@ -380,11 +380,12 @@ function loadRichiestemezzo() {
   richiesteListener = db.collection("richiestemezzi").onSnapshot(async snap => {
     body.innerHTML = "";
     markersRichieste.clearLayers();
-    const veicoliSnap = await db.collection("mezziMeccanici").get();
-    mezziLiberi = veicoliSnap.docs.map(vdoc => {
-      const v = vdoc.data();
-      return v.stato==="libero" ? { id: vdoc.id, ...v } : null;
-    }).filter(Boolean);
+   const veicoliSnap = await db.collection("mezziMeccanici").get();
+
+mezziLiberi = veicoliSnap.docs.map(vdoc => ({
+  id: vdoc.id,
+  ...vdoc.data()
+}));
 
     snap.forEach(doc => {
       const r = doc.data();
@@ -393,12 +394,16 @@ if(active !== "ALL" && r.distretto != active) return;
 
       let azioni = "";
       if(r.status === "in attesa") {
-        const options = mezziLiberi
-          .filter(v => v.distretto === r.distretto)
-          .map(v => `<option value="${v.id}|${v.identificativo}|${v.tipoMezzo}">
-  ${v.identificativo} – ${v.tipoMezzo}
-</option>`)
-          .join("");
+      const options = mezziLiberi
+  .filter(v =>
+    (v.stato === "libero" || v.id === r.mezzoId) &&
+    String(v.distretto) === String(r.distretto)
+  )
+  .map(v => `<option value="${v.id}|${v.identificativo}|${v.tipoMezzo}">
+    ${v.identificativo} – ${v.tipoMezzo}
+    ${v.id === r.mezzoId ? "(Mezzo richiesto)" : ""}
+  </option>`)
+  .join("");
 
        azioni = `
   <select id="mezzo_${doc.id}">
@@ -461,21 +466,43 @@ const marker = L.marker([r.latitudine, r.longitudine], {
 }
 
 
+
 async function rifiutaRichiesta(richiestaId) {
   if (!accessGranted) {
     alert("Accesso non autorizzato");
     return;
   }
 
-  if (!confirm("Vuoi eliminare definitivamente questa richiesta?")) {
+  if (!confirm("Vuoi rifiutare definitivamente questa richiesta? Il mezzo tornerà libero.")) {
     return;
   }
 
   try {
-    await db.collection("richiestemezzi").doc(richiestaId).delete();
+    // Recupera la richiesta
+    const richiestaRef = db.collection("richiestemezzi").doc(richiestaId);
+    const richiestaSnap = await richiestaRef.get();
 
-    alert("Richiesta eliminata.");
-    // La tabella si aggiorna automaticamente tramite onSnapshot.
+    if (!richiestaSnap.exists) {
+      alert("Richiesta non trovata.");
+      return;
+    }
+
+    const richiesta = richiestaSnap.data();
+
+    // Libera il mezzo precedentemente selezionato
+    if (richiesta.mezzoId) {
+      await db.collection("mezziMeccanici")
+        .doc(richiesta.mezzoId)
+        .update({
+          stato: "libero"
+        });
+    }
+
+    // Elimina la richiesta
+    await richiestaRef.delete();
+
+    alert("Richiesta eliminata e mezzo nuovamente libero.");
+
   } catch (errore) {
     console.error("Errore eliminazione richiesta:", errore);
     alert("Errore durante l'eliminazione: " + errore.message);
