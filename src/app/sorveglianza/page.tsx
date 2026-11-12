@@ -407,8 +407,13 @@ export default function Sorveglianza() {
       return alert("Compila tutti i campi");
     if (!latLng) return alert("Posizione non disponibile");
 
-    if (!jpgFile) {
-  return alert("⚠️ Devi allegare lo scontrino del rifornimento prima di inviare il report.");
+   const rifornimentoInserito =
+  rifornimentoKm.trim() !== "" &&
+  quantitaLitri.trim() !== "" &&
+  importoeuro.trim() !== "";
+
+if (rifornimentoInserito && !jpgFile) {
+  return alert("⚠️ Devi allegare lo scontrino del rifornimento.");
 }
 
     const kmGiornalieri =
@@ -1037,14 +1042,14 @@ export default function Sorveglianza() {
                 </label>
 
                 <p className="mb-3 text-sm text-[#5c6f82]">
-                 Allegare obbligatoriamente lo scontrino del rifornimento.
+                 Allegare lo scontrino obbligatoriamente quando vengono inseriti tutti i dati del rifornimento.
                 </p>
 
                <input
   id="jpgFile"
   type="file"
   accept="image/*"
-  required
+  
                   onChange={(e) =>
                     setJpgFile(e.target.files?.[0] || null)
                   }
